@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Draftboard color palette - Warm, creative aesthetic */
+  /* Light mode colors (default) */
+  --color-background: #faf9f7;
+  --color-foreground: #1a1918;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1918;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1a1918;
+  --color-primary: #e85d04;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f5f0eb;
+  --color-secondary-foreground: #1a1918;
+  --color-muted: #f0ebe5;
+  --color-muted-foreground: #6b6966;
+  --color-accent: #ffd6a5;
+  --color-accent-foreground: #1a1918;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e5e0da;
+  --color-input: #e5e0da;
+  --color-ring: #e85d04;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+/* Dark mode - applied via .dark class on html element */
+:root.dark {
+  --color-background: #0f0e0d;
+  --color-foreground: #f5f4f2;
+  --color-card: #1a1918;
+  --color-card-foreground: #f5f4f2;
+  --color-popover: #1a1918;
+  --color-popover-foreground: #f5f4f2;
+  --color-primary: #ff7b29;
+  --color-primary-foreground: #0f0e0d;
+  --color-secondary: #262422;
+  --color-secondary-foreground: #f5f4f2;
+  --color-muted: #262422;
+  --color-muted-foreground: #a8a5a0;
+  --color-accent: #cc7a29;
+  --color-accent-foreground: #f5f4f2;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #f5f4f2;
+  --color-border: #2e2c2a;
+  --color-input: #2e2c2a;
+  --color-ring: #ff7b29;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* Custom scrollbar */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-muted) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--color-muted);
+    border-radius: 3px;
+  }
+}
+
+/* Lexical editor styles */
+.editor-container {
+  @apply relative min-h-[200px] rounded-lg border border-input bg-background;
+}
+
+.editor-input {
+  @apply min-h-[200px] p-4 outline-none;
+}
+
+.editor-placeholder {
+  @apply pointer-events-none absolute left-4 top-4 select-none text-muted-foreground;
+}
+
+/* Selectable decorator nodes (images, attachments) */
+.editor-image,
+.editor-attachment {
+  @apply relative cursor-pointer;
+}
+
+.editor-image:focus,
+.editor-attachment:focus,
+.editor-image.selected,
+.editor-attachment.selected {
+  @apply outline-2 outline-primary outline-offset-2 outline;
+}
+
+/* Mention styles */
+.mention {
+  @apply rounded bg-primary/10 px-1 py-0.5 text-primary;
+}
+
+/* Code block styles */
+.editor-code {
+  @apply my-2 block overflow-x-auto rounded-md bg-muted p-4 font-mono text-sm;
+}

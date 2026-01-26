@@ -1,0 +1,3 @@
+{
+  "/api/trpc/[trpc]/route": "app/api/trpc/[trpc]/route.js"
+}

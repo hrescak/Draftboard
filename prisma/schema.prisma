@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+  OWNER
+}
+
+enum AttachmentType {
+  IMAGE
+  VIDEO
+  FILE
+  FIGMA
+  LOOM
+}
+
+enum NotificationType {
+  COMMENT
+  COMMENT_REPLY
+  REACTION_POST
+  REACTION_COMMENT
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  displayName   String
+  avatarUrl     String?
+  role          Role      @default(MEMBER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  posts         Post[]
+  comments      Comment[]
+  reactions     Reaction[]
+  notifications Notification[] @relation("UserNotifications")
+  actedNotifications Notification[] @relation("ActorNotifications")
+  projects      ProjectMember[]
+  customEmoji   CustomEmoji[]
+}
+
+model Post {
+  id          String       @id @default(cuid())
+  title       String?
+  content     Json
+  liveUrl     String?
+  authorId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  author      User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
+  comments    Comment[]
+  reactions   Reaction[]
+  projects    PostProject[]
+  notifications Notification[]
+
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model Attachment {
+  id           String          @id @default(cuid())
+  postId       String
+  type         AttachmentType
+  url          String
+  filename     String
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  thumbnailUrl String?
+  metadata     Json?
+  order        Int
+  createdAt    DateTime        @default(now())
+
+  post         Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comments     Comment[]
+
+  @@index([postId])
+}
+
+model Project {
+  id          String          @id @default(cuid())
+  name        String
+  description Json?
+  coverUrl    String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  createdById String
+
+  posts       PostProject[]
+  urls        ProjectUrl[]
+  members     ProjectMember[]
+
+  @@index([createdAt])
+}
+
+model PostProject {
+  postId    String
+  projectId String
+
+  post      Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([postId, projectId])
+}
+
+model ProjectUrl {
+  id        String  @id @default(cuid())
+  projectId String
+  title     String
+  url       String
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model Comment {
+  id           String    @id @default(cuid())
+  content      Json
+  authorId     String
+  postId       String
+  parentId     String?
+  attachmentId String?
+  coordinates  Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  author       User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post         Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent       Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      Comment[] @relation("CommentReplies")
+  attachment   Attachment? @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  reactions    Reaction[]
+  notifications Notification[]
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([attachmentId])
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String
+  postId    String?
+  commentId String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId, type])
+  @@unique([userId, commentId, type])
+  @@index([postId])
+  @@index([commentId])
+}
+
+model CustomEmoji {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  imageUrl  String
+  createdBy String
+  createdAt DateTime @default(now())
+
+  creator   User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  userId    String
+  actorId   String
+  postId    String?
+  commentId String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User             @relation("ActorNotifications", fields: [actorId], references: [id], onDelete: Cascade)
+  post      Post?            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment   Comment?         @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
