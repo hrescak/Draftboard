@@ -18,8 +18,8 @@ export default async function MainLayout({
     <TooltipProvider>
       <div className="min-h-screen bg-background">
         <MainNav user={session.user} />
-        <main className="ml-16 min-h-screen">
-          <div className="mx-auto max-w-5xl px-6 pt-4 pb-6">{children}</div>
+        <main className="min-h-screen sm:ml-16">
+          <div className="mx-auto max-w-3xl px-4 pt-4 pb-20 sm:px-6 sm:pb-6">{children}</div>
         </main>
       </div>
     </TooltipProvider>

@@ -109,13 +109,13 @@ export function AttachmentCarousel({
               <button
                 key={attachment.id}
                 onClick={(e) => handleImageClick(attachment.id, e)}
-                className="group relative flex-1 overflow-hidden rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                className="group relative flex-1 cursor-pointer overflow-hidden rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
               >
                 <div className="relative aspect-video w-full overflow-hidden bg-muted">
                   <SignedImage
                     url={attachment.thumbnailUrl || attachment.url}
                     filename={attachment.filename}
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    className="h-full w-full object-cover transition-transform duration-200 ease-in-out group-hover:scale-[1.02]"
                   />
                   {index === 1 && remaining > 0 && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white">
@@ -131,7 +131,7 @@ export function AttachmentCarousel({
             <Link
               key={attachment.id}
               href={`/post/${postId}#attachment-${attachment.id}`}
-              className="group relative flex-1 overflow-hidden rounded-lg"
+              className="group relative flex-1 cursor-pointer overflow-hidden rounded-lg"
             >
               {attachment.type === "VIDEO" ? (
                 <div className="relative aspect-video w-full overflow-hidden bg-muted">

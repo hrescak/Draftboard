@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { api } from "~/lib/trpc/client";
 import { getInitials } from "~/lib/utils";
 import { Loader2, User, Users, Smile, Palette, Sun, Moon, Monitor } from "lucide-react";
+import { EmojiUpload, EmojiImage } from "~/components/settings/EmojiUpload";
+import { AvatarUpload } from "~/components/settings/AvatarUpload";
 
 export default function SettingsPage() {
   const { data: session, update: updateSession } = useSession();
@@ -73,23 +75,13 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSaveProfile} className="space-y-6">
-                <div className="flex items-center gap-6">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={avatarUrl || user?.avatarUrl || undefined} />
-                    <AvatarFallback className="text-xl">
-                      {getInitials(displayName || user?.displayName || "")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="avatarUrl">Avatar URL</Label>
-                    <Input
-                      id="avatarUrl"
-                      type="url"
-                      placeholder="https://example.com/avatar.jpg"
-                      value={avatarUrl}
-                      onChange={(e) => setAvatarUrl(e.target.value)}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Profile Photo</Label>
+                  <AvatarUpload
+                    value={avatarUrl || user?.avatarUrl || null}
+                    onChange={(url) => setAvatarUrl(url || "")}
+                    fallbackName={displayName || user?.displayName || ""}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -281,7 +273,7 @@ function AppearanceSettings() {
 
 function EmojiManagement() {
   const [name, setName] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const utils = api.useUtils();
 
   const { data: emoji, isLoading } = api.reaction.listEmoji.useQuery();
@@ -289,7 +281,7 @@ function EmojiManagement() {
   const createMutation = api.reaction.createEmoji.useMutation({
     onSuccess: () => {
       setName("");
-      setImageUrl("");
+      setImageUrl(null);
       utils.reaction.listEmoji.invalidate();
     },
   });
@@ -311,24 +303,24 @@ function EmojiManagement() {
       <CardHeader>
         <CardTitle>Custom Emoji</CardTitle>
         <CardDescription>
-          Add custom emoji for reactions
+          Add custom emoji for reactions. Upload PNG, GIF, WebP, or JPEG images (max 1MB).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
-            placeholder="emoji_name"
-            value={name}
-            onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-            className="w-40"
-          />
-          <Input
-            type="url"
-            placeholder="Image URL (32x32)"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            className="flex-1"
-          />
+        <form onSubmit={handleSubmit} className="flex items-end gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="emoji-image" className="text-sm">Image</Label>
+            <EmojiUpload value={imageUrl} onChange={setImageUrl} />
+          </div>
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="emoji-name" className="text-sm">Name</Label>
+            <Input
+              id="emoji-name"
+              placeholder="emoji_name"
+              value={name}
+              onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+            />
+          </div>
           <Button type="submit" disabled={!name || !imageUrl || createMutation.isPending}>
             {createMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -350,7 +342,7 @@ function EmojiManagement() {
                 className="flex items-center justify-between rounded-lg border p-2"
               >
                 <div className="flex items-center gap-2">
-                  <img src={e.imageUrl} alt={e.name} className="h-8 w-8" />
+                  <EmojiImage url={e.imageUrl} alt={e.name} />
                   <span className="text-sm">:{e.name}:</span>
                 </div>
                 <Button

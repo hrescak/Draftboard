@@ -78,7 +78,7 @@ export function ReactionButton({
             variant="ghost"
             size="sm"
             className={cn(
-              "gap-2 text-muted-foreground",
+              "gap-2 rounded-full px-2 text-muted-foreground",
               hasReactions && "text-primary"
             )}
           >

@@ -12,19 +12,19 @@
   --color-card-foreground: #1a1918;
   --color-popover: #ffffff;
   --color-popover-foreground: #1a1918;
-  --color-primary: #e85d04;
+  --color-primary: #1a1918;
   --color-primary-foreground: #ffffff;
   --color-secondary: #f5f0eb;
   --color-secondary-foreground: #1a1918;
   --color-muted: #f0ebe5;
   --color-muted-foreground: #6b6966;
-  --color-accent: #ffd6a5;
-  --color-accent-foreground: #1a1918;
+  --color-accent: #1a1918;
+  --color-accent-foreground: #ffffff;
   --color-destructive: #dc2626;
   --color-destructive-foreground: #ffffff;
   --color-border: #e5e0da;
   --color-input: #e5e0da;
-  --color-ring: #e85d04;
+  --color-ring: #1a1918;
 
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
@@ -40,19 +40,19 @@
   --color-card-foreground: #f5f4f2;
   --color-popover: #1a1918;
   --color-popover-foreground: #f5f4f2;
-  --color-primary: #ff7b29;
+  --color-primary: #f5f4f2;
   --color-primary-foreground: #0f0e0d;
   --color-secondary: #262422;
   --color-secondary-foreground: #f5f4f2;
   --color-muted: #262422;
   --color-muted-foreground: #a8a5a0;
-  --color-accent: #cc7a29;
-  --color-accent-foreground: #f5f4f2;
+  --color-accent: #f5f4f2;
+  --color-accent-foreground: #0f0e0d;
   --color-destructive: #ef4444;
   --color-destructive-foreground: #f5f4f2;
   --color-border: #2e2c2a;
   --color-input: #2e2c2a;
-  --color-ring: #ff7b29;
+  --color-ring: #f5f4f2;
 }
 
 @layer base {

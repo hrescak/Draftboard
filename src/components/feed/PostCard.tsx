@@ -92,8 +92,8 @@ export function PostCard({ post }: PostCardProps) {
   const projectCount = post.projects.length;
 
   return (
-    <Card className="overflow-hidden transition-shadow hover:shadow-md">
-      <CardHeader className="pb-3">
+    <Card className="overflow-hidden transition-shadow">
+      <CardHeader className="px-5 pt-5 pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href={`/user/${post.author.id}`}>
@@ -111,13 +111,6 @@ export function PostCard({ post }: PostCardProps) {
                   className="font-medium hover:underline"
                 >
                   {post.author.displayName}
-                </Link>
-                <span className="text-muted-foreground">·</span>
-                <Link
-                  href={`/post/${post.id}`}
-                  className="text-muted-foreground hover:underline"
-                >
-                  {formatRelativeTime(new Date(post.createdAt))}
                 </Link>
                 {projectCount > 0 && (
                   <>
@@ -149,12 +142,18 @@ export function PostCard({ post }: PostCardProps) {
                   </>
                 )}
               </div>
+              <Link
+                href={`/post/${post.id}`}
+                className="text-xs text-muted-foreground hover:underline"
+              >
+                {formatRelativeTime(new Date(post.createdAt))}
+              </Link>
             </div>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="pb-3">
+      <CardContent className="px-5 pb-3">
         <Link href={`/post/${post.id}`} className="block">
           {post.title && (
             <h2 className="mb-2 text-lg font-semibold hover:underline">
@@ -179,7 +178,7 @@ export function PostCard({ post }: PostCardProps) {
         )}
       </CardContent>
 
-      <CardFooter className="border-t pt-3">
+      <CardFooter className="px-5 pt-1 pb-3">
         <div className="flex w-full items-center justify-between">
           <div className="flex items-center gap-2">
             <ReactionButton
@@ -188,7 +187,7 @@ export function PostCard({ post }: PostCardProps) {
               count={post._count.reactions}
             />
             <Link href={`/post/${post.id}#comments`}>
-              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+              <Button variant="ghost" size="sm" className="gap-2 rounded-full px-2 text-muted-foreground">
                 <MessageCircle className="h-4 w-4" />
                 {post._count.comments > 0 && post._count.comments}
               </Button>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "~/lib/utils";
-import { Home, FolderKanban, Bell, PenSquare, Settings } from "lucide-react";
+import { Home, FolderKanban, Bell, Plus, Settings, User } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -28,6 +28,13 @@ const navItems = [
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
+const mobileNavItems = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/compose", label: "Add", icon: Plus },
+];
+
 interface MainNavProps {
   user: {
     id: string;
@@ -41,101 +48,148 @@ export function MainNav({ user }: MainNavProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 z-50 flex h-screen w-16 flex-col bg-background">
-      {/* Logo at top - aligned with content header */}
-      <div className="flex items-start justify-center pt-4">
-        <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary transition-transform hover:scale-105">
-          <span className="text-lg font-bold text-primary-foreground">D</span>
-        </Link>
-      </div>
+    <>
+      {/* Desktop Sidebar - hidden on mobile */}
+      <aside className="fixed left-0 top-0 z-50 hidden h-screen w-16 flex-col bg-background sm:flex">
+        {/* Logo at top - aligned with content header */}
+        <div className="flex items-start justify-center pt-4">
+          <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary transition-transform hover:scale-105">
+            <span className="text-lg font-bold text-primary-foreground">D</span>
+          </Link>
+        </div>
 
-      {/* Centered navigation items */}
-      <nav className="flex flex-1 flex-col items-center justify-center gap-1">
-        {navItems.map((item) => {
+        {/* Centered navigation items */}
+        <nav className="flex flex-1 flex-col items-center justify-center gap-1">
+          {navItems.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/" && pathname.startsWith(item.href));
+            const Icon = item.icon;
+
+            return (
+              <Tooltip key={item.href} delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
+                      isActive
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  {item.label}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+
+          {/* Compose button */}
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Link
+                href="/compose"
+                className="flex h-12 w-12 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+              >
+                <Plus className="h-6 w-6" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">New Post</TooltipContent>
+          </Tooltip>
+        </nav>
+
+        {/* Profile at bottom */}
+        <div className="flex flex-col items-center gap-1 pb-4">
+          <DropdownMenu>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex h-12 w-12 items-center justify-center rounded-xl transition-colors cursor-pointer hover:bg-secondary/50">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.image ?? undefined} alt={user.name} />
+                      <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="right">Profile</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent side="right" align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{user.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={`/user/${user.id}`}>
+                  <User className="mr-2 h-4 w-4" />
+                  View Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => signOut({ callbackUrl: "/sign-in" })}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </aside>
+
+      {/* Mobile Bottom Tab Bar - shown only on mobile */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t bg-background px-2 sm:hidden">
+        {mobileNavItems.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));
           const Icon = item.icon;
 
           return (
-            <Tooltip key={item.href} delayDuration={0}>
-              <TooltipTrigger asChild>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
-                    isActive
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-                  )}
-                >
-                  <Icon className="h-6 w-6" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                {item.label}
-              </TooltipContent>
-            </Tooltip>
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex h-12 w-12 flex-col items-center justify-center rounded-xl transition-colors",
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              )}
+            >
+              <Icon className="h-6 w-6" />
+            </Link>
           );
         })}
 
-        {/* Compose button */}
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>
-            <Link
-              href="/compose"
-              className="mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              <PenSquare className="h-6 w-6" />
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">New Post</TooltipContent>
-        </Tooltip>
+        {/* Profile tab */}
+        <Link
+          href={`/user/${user.id}`}
+          className={cn(
+            "flex h-12 w-12 flex-col items-center justify-center rounded-xl transition-colors",
+            pathname.startsWith("/user/")
+              ? "text-foreground"
+              : "text-muted-foreground"
+          )}
+        >
+          <User className="h-6 w-6" />
+        </Link>
       </nav>
-
-      {/* Profile at bottom */}
-      <div className="flex flex-col items-center gap-1 pb-4">
-        <DropdownMenu>
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <button className="flex h-12 w-12 items-center justify-center rounded-xl transition-colors hover:bg-secondary/50">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.image ?? undefined} alt={user.name} />
-                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="right">Profile</TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent side="right" align="end" className="w-56">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user.email}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => signOut({ callbackUrl: "/sign-in" })}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </aside>
+    </>
   );
 }

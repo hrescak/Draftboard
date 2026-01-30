@@ -144,24 +144,23 @@ export default function ProjectsPage() {
           {projects.map((project) => (
             <Link key={project.id} href={`/projects/${project.id}`}>
               <Card className="h-full transition-shadow hover:shadow-md">
-                {project.coverUrl && (
-                  <div className="aspect-video overflow-hidden rounded-t-xl">
+                <div className="aspect-video overflow-hidden rounded-t-xl">
+                  {project.coverUrl ? (
                     <SignedCoverImage url={project.coverUrl} name={project.name} />
-                  </div>
-                )}
-                <CardHeader className={project.coverUrl ? "pt-4" : ""}>
-                  <div className="flex items-start gap-3">
-                    {!project.coverUrl && (
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <FolderKanban className="h-5 w-5 text-primary" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-muted">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10">
+                        <FolderKanban className="h-8 w-8 text-primary" />
                       </div>
-                    )}
-                    <div>
-                      <h3 className="font-semibold">{project.name}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Created {formatRelativeTime(new Date(project.createdAt))}
-                      </p>
                     </div>
+                  )}
+                </div>
+                <CardHeader className="pt-4">
+                  <div>
+                    <h3 className="font-semibold">{project.name}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Created {formatRelativeTime(new Date(project.createdAt))}
+                    </p>
                   </div>
                 </CardHeader>
                 <CardContent>

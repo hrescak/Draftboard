@@ -174,6 +174,67 @@ export const postRouter = createTRPCRouter({
       return { posts, nextCursor };
     }),
 
+  byUser: protectedProcedure
+    .input(
+      paginationSchema.extend({
+        userId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const posts = await ctx.db.post.findMany({
+        where: {
+          authorId: input.userId,
+        },
+        take: input.limit + 1,
+        cursor: input.cursor ? { id: input.cursor } : undefined,
+        orderBy: { createdAt: "desc" },
+        include: {
+          author: {
+            select: {
+              id: true,
+              displayName: true,
+              avatarUrl: true,
+            },
+          },
+          attachments: {
+            orderBy: { order: "asc" },
+            take: 3,
+          },
+          projects: {
+            include: {
+              project: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          reactions: {
+            select: {
+              type: true,
+              userId: true,
+            },
+          },
+          _count: {
+            select: {
+              comments: true,
+              reactions: true,
+              attachments: true,
+            },
+          },
+        },
+      });
+
+      let nextCursor: string | undefined;
+      if (posts.length > input.limit) {
+        const nextItem = posts.pop();
+        nextCursor = nextItem?.id;
+      }
+
+      return { posts, nextCursor };
+    }),
+
   byProject: protectedProcedure
     .input(
       paginationSchema.extend({

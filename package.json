@@ -50,6 +50,7 @@
     "next-themes": "^0.4.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-masonry-css": "^1.0.16",
     "superjson": "^2.2.2",
     "tailwind-merge": "^3.0.2",
     "zod": "^3.25.30"

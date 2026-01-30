@@ -10,9 +10,26 @@ import { FeedSkeleton } from "./FeedSkeleton";
 
 type ViewMode = "feed" | "grid";
 
+const VIEW_MODE_KEY = "draftboard-view-mode";
+
 export function FeedView() {
   const [viewMode, setViewMode] = useState<ViewMode>("feed");
+  const [isHydrated, setIsHydrated] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Read persisted view mode after hydration
+  useEffect(() => {
+    const stored = localStorage.getItem(VIEW_MODE_KEY);
+    if (stored === "grid") {
+      setViewMode("grid");
+    }
+    setIsHydrated(true);
+  }, []);
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+  };
 
   const {
     data,
@@ -75,7 +92,7 @@ export function FeedView() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Home</h1>
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+        <Tabs value={viewMode} onValueChange={(v) => handleViewModeChange(v as ViewMode)}>
           <TabsList>
             <TabsTrigger value="feed" className="gap-2">
               <List className="h-4 w-4" />
@@ -96,7 +113,9 @@ export function FeedView() {
           ))}
         </div>
       ) : (
-        <GridView posts={posts} />
+        <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen px-3 sm:pl-[calc(4rem+12px)] sm:pr-3">
+          <GridView posts={posts} />
+        </div>
       )}
 
       <div ref={loadMoreRef} className="flex justify-center py-4">

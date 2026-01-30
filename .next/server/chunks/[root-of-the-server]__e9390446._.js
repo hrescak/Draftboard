@@ -568,6 +568,69 @@ const postRouter = (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$se
             nextCursor
         };
     }),
+    byUser: __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$server$2f$api$2f$trpc$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["protectedProcedure"].input(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$validators$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["paginationSchema"].extend({
+        userId: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$v3$2f$external$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$export__$2a$__as__z$3e$__["z"].string()
+    })).query(async ({ ctx, input })=>{
+        const posts = await ctx.db.post.findMany({
+            where: {
+                authorId: input.userId
+            },
+            take: input.limit + 1,
+            cursor: input.cursor ? {
+                id: input.cursor
+            } : undefined,
+            orderBy: {
+                createdAt: "desc"
+            },
+            include: {
+                author: {
+                    select: {
+                        id: true,
+                        displayName: true,
+                        avatarUrl: true
+                    }
+                },
+                attachments: {
+                    orderBy: {
+                        order: "asc"
+                    },
+                    take: 3
+                },
+                projects: {
+                    include: {
+                        project: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
+                    }
+                },
+                reactions: {
+                    select: {
+                        type: true,
+                        userId: true
+                    }
+                },
+                _count: {
+                    select: {
+                        comments: true,
+                        reactions: true,
+                        attachments: true
+                    }
+                }
+            }
+        });
+        let nextCursor;
+        if (posts.length > input.limit) {
+            const nextItem = posts.pop();
+            nextCursor = nextItem?.id;
+        }
+        return {
+            posts,
+            nextCursor
+        };
+    }),
     byProject: __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$server$2f$api$2f$trpc$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["protectedProcedure"].input(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$validators$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["paginationSchema"].extend({
         projectId: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$v3$2f$external$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$export__$2a$__as__z$3e$__["z"].string()
     })).query(async ({ ctx, input })=>{
