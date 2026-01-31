@@ -79,6 +79,12 @@ export function MainNav({ user }: MainNavProps) {
   const pathname = usePathname();
   const [composeOpen, setComposeOpen] = useState(false);
   
+  // Fetch current user data to get fresh avatar URL (session may be stale)
+  const { data: currentUser } = api.user.me.useQuery();
+  
+  // Use fresh avatar from API if available, otherwise fall back to session
+  const avatarUrl = currentUser?.avatarUrl ?? user.image;
+  
   // Always fetch drafts to know whether to show popover or direct link
   const { data: drafts, error: draftsError } = api.draft.list.useQuery();
 
@@ -236,7 +242,7 @@ export function MainNav({ user }: MainNavProps) {
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   <button className="flex h-12 w-12 items-center justify-center rounded-xl transition-colors cursor-pointer hover:bg-secondary/50">
-                    <UserAvatar avatarUrl={user.image} name={user.name} className="h-8 w-8" />
+                    <UserAvatar avatarUrl={avatarUrl} name={user.name} className="h-8 w-8" />
                   </button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>

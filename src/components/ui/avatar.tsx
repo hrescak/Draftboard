@@ -93,7 +93,7 @@ function UserAvatar({ avatarUrl, name, className }: UserAvatarProps) {
   }, [avatarUrl, signedUrlData?.url, r2Key]);
 
   return (
-    <Avatar className={className}>
+    <Avatar className={className} key={displayUrl ?? "no-avatar"}>
       <AvatarImage src={displayUrl} alt={name} />
       <AvatarFallback>{getInitials(name)}</AvatarFallback>
     </Avatar>
