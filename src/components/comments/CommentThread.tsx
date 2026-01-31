@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { UserAvatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
-import { formatRelativeTime, getInitials } from "~/lib/utils";
+import { formatRelativeTime } from "~/lib/utils";
 import { ReactionButton } from "~/components/reactions/ReactionButton";
 import { CommentComposer } from "./CommentComposer";
 import { MessageCircle } from "lucide-react";
@@ -80,12 +80,7 @@ export function CommentThread({ comment, postId }: CommentThreadProps) {
       {/* Main comment */}
       <div className="flex gap-3">
         <Link href={`/user/${comment.author.id}`}>
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={comment.author.avatarUrl ?? undefined} />
-            <AvatarFallback className="text-xs">
-              {getInitials(comment.author.displayName)}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar avatarUrl={comment.author.avatarUrl} name={comment.author.displayName} className="h-8 w-8" />
         </Link>
         <div className="flex-1">
           <div className="rounded-lg bg-muted px-3 py-2">
@@ -142,12 +137,7 @@ export function CommentThread({ comment, postId }: CommentThreadProps) {
             return (
               <div key={reply.id} className="flex gap-3">
                 <Link href={`/user/${reply.author.id}`}>
-                  <Avatar className="h-7 w-7">
-                    <AvatarImage src={reply.author.avatarUrl ?? undefined} />
-                    <AvatarFallback className="text-xs">
-                      {getInitials(reply.author.displayName)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar avatarUrl={reply.author.avatarUrl} name={reply.author.displayName} className="h-7 w-7" />
                 </Link>
                 <div className="flex-1">
                   <div className="rounded-lg bg-muted px-3 py-2">

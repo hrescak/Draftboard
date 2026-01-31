@@ -149,7 +149,7 @@ export default function ProjectsPage() {
                     <SignedCoverImage url={project.coverUrl} name={project.name} />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-muted">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-background">
                         <FolderKanban className="h-8 w-8 text-primary" />
                       </div>
                     </div>

@@ -44,8 +44,8 @@ export default function EditPostPage({ params }: EditPostPageProps) {
       setTitle(post.title || "");
       setLiveUrl(post.liveUrl || "");
       setSelectedProjects(post.projects.map((p) => p.project));
-      setInitialContent(post.content as SerializedEditorState);
-      setContent(post.content as SerializedEditorState);
+      setInitialContent(post.content as unknown as SerializedEditorState);
+      setContent(post.content as unknown as SerializedEditorState);
       setIsLoading(false);
     }
   }, [post]);

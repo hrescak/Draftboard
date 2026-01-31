@@ -136,8 +136,9 @@ export const postRouter = createTRPCRouter({
             },
           },
           attachments: {
+            where: { type: { in: ["IMAGE", "VIDEO"] } },
             orderBy: { order: "asc" },
-            take: 3, // For preview
+            take: 3, // For preview - only images/videos
           },
           projects: {
             include: {
@@ -197,6 +198,7 @@ export const postRouter = createTRPCRouter({
             },
           },
           attachments: {
+            where: { type: { in: ["IMAGE", "VIDEO"] } },
             orderBy: { order: "asc" },
             take: 3,
           },
@@ -262,6 +264,7 @@ export const postRouter = createTRPCRouter({
             },
           },
           attachments: {
+            where: { type: { in: ["IMAGE", "VIDEO"] } },
             orderBy: { order: "asc" },
             take: 3,
           },

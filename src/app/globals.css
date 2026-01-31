@@ -97,7 +97,7 @@
 }
 
 .editor-placeholder {
-  @apply pointer-events-none absolute left-4 top-4 select-none text-muted-foreground;
+  @apply pointer-events-none absolute left-4 top-4 select-none text-muted-foreground/50;
 }
 
 /* Selectable decorator nodes (images, attachments) */

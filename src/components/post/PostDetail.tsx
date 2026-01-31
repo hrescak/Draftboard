@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { UserAvatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import {
@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
-import { formatRelativeTime, getInitials } from "~/lib/utils";
+import { formatRelativeTime } from "~/lib/utils";
 import { ExternalLink, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react";
 import { EditorContent } from "~/components/editor/Editor";
 import { ReactionButton } from "~/components/reactions/ReactionButton";
@@ -98,10 +98,7 @@ export function PostDetail({ post }: PostDetailProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href={`/user/${post.author.id}`}>
-              <Avatar className="h-12 w-12">
-                <AvatarImage src={post.author.avatarUrl ?? undefined} />
-                <AvatarFallback>{getInitials(post.author.displayName)}</AvatarFallback>
-              </Avatar>
+              <UserAvatar avatarUrl={post.author.avatarUrl} name={post.author.displayName} className="h-12 w-12" />
             </Link>
             <div>
               <Link

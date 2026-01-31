@@ -11,8 +11,7 @@ import { TextNode } from "lexical";
 import { createPortal } from "react-dom";
 import { $createMentionNode, type MentionType } from "../nodes/MentionNode";
 import { api } from "~/lib/trpc/client";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { getInitials } from "~/lib/utils";
+import { UserAvatar } from "~/components/ui/avatar";
 import { FolderKanban, User } from "lucide-react";
 
 class MentionOption extends MenuOption {
@@ -57,12 +56,7 @@ function MentionMenuItem({
       }`}
     >
       {option.type === "user" ? (
-        <Avatar className="h-6 w-6">
-          <AvatarImage src={option.avatarUrl ?? undefined} />
-          <AvatarFallback className="text-xs">
-            {getInitials(option.name)}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar avatarUrl={option.avatarUrl} name={option.name} className="h-6 w-6" />
       ) : (
         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted">
           <FolderKanban className="h-3.5 w-3.5" />

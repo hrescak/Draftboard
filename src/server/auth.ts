@@ -17,10 +17,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/sign-in",
   },
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.name = user.name;
+        token.image = user.image;
+      }
+      // Refetch user data from database when session update is triggered
+      if (trigger === "update" && token.id) {
+        const freshUser = await db.user.findUnique({
+          where: { id: token.id as string },
+          select: {
+            displayName: true,
+            avatarUrl: true,
+            role: true,
+          },
+        });
+        if (freshUser) {
+          token.name = freshUser.displayName;
+          token.image = freshUser.avatarUrl;
+          token.role = freshUser.role;
+        }
       }
       return token;
     },
@@ -28,6 +46,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as "MEMBER" | "ADMIN" | "OWNER";
+        session.user.name = token.name as string;
+        session.user.image = token.image as string | null | undefined;
       }
       return session;
     },
@@ -92,5 +112,7 @@ declare module "next-auth" {
   interface JWT {
     id: string;
     role: "MEMBER" | "ADMIN" | "OWNER";
+    name: string;
+    image?: string | null;
   }
 }

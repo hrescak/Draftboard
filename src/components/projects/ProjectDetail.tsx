@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { UserAvatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
@@ -25,7 +25,7 @@ import {
 import { api } from "~/lib/trpc/client";
 import { PostCard } from "~/components/feed/PostCard";
 import { GridView } from "~/components/feed/GridView";
-import { formatRelativeTime, getInitials } from "~/lib/utils";
+import { formatRelativeTime } from "~/lib/utils";
 import { ExternalLink, Users, List, LayoutGrid, Loader2, FolderKanban, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -271,12 +271,7 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
             <div className="flex -space-x-2">
               {project.members.slice(0, 5).map(({ user }) => (
                 <Link key={user.id} href={`/user/${user.id}`}>
-                  <Avatar className="h-8 w-8 border-2 border-background">
-                    <AvatarImage src={user.avatarUrl ?? undefined} />
-                    <AvatarFallback className="text-xs">
-                      {getInitials(user.displayName)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar avatarUrl={user.avatarUrl} name={user.displayName} className="h-8 w-8 border-2 border-background" />
                 </Link>
               ))}
             </div>

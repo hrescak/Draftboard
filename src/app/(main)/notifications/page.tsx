@@ -3,10 +3,10 @@
 import { useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { api } from "~/lib/trpc/client";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { UserAvatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
-import { formatRelativeTime, getInitials } from "~/lib/utils";
+import { formatRelativeTime } from "~/lib/utils";
 import { Bell, MessageCircle, Heart, CheckCheck, Loader2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 
@@ -155,12 +155,7 @@ export default function NotificationsPage() {
                 !notification.read && "bg-primary/5"
               )}
             >
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={notification.actor.avatarUrl ?? undefined} />
-                <AvatarFallback>
-                  {getInitials(notification.actor.displayName)}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar avatarUrl={notification.actor.avatarUrl} name={notification.actor.displayName} className="h-10 w-10" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm">
                   {getNotificationText(

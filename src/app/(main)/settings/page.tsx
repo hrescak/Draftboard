@@ -7,16 +7,12 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { api } from "~/lib/trpc/client";
-import { getInitials } from "~/lib/utils";
-import { Loader2, User, Users, Smile, Palette, Sun, Moon, Monitor } from "lucide-react";
-import { EmojiUpload, EmojiImage } from "~/components/settings/EmojiUpload";
+import { Loader2, Sun, Moon, Monitor } from "lucide-react";
 import { AvatarUpload } from "~/components/settings/AvatarUpload";
 
 export default function SettingsPage() {
-  const { data: session, update: updateSession } = useSession();
+  const { update: updateSession } = useSession();
   const { data: user } = api.user.me.useQuery();
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -35,171 +31,60 @@ export default function SettingsPage() {
     });
   };
 
-  const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "OWNER";
-
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-8">
       <h1 className="text-2xl font-bold">Settings</h1>
 
-      <Tabs defaultValue="profile">
-        <TabsList>
-          <TabsTrigger value="profile" className="gap-2">
-            <User className="h-4 w-4" />
-            Profile
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-2">
-            <Palette className="h-4 w-4" />
-            Appearance
-          </TabsTrigger>
-          {isAdmin && (
-            <>
-              <TabsTrigger value="users" className="gap-2">
-                <Users className="h-4 w-4" />
-                Users
-              </TabsTrigger>
-              <TabsTrigger value="emoji" className="gap-2">
-                <Smile className="h-4 w-4" />
-                Emoji
-              </TabsTrigger>
-            </>
-          )}
-        </TabsList>
-
-        <TabsContent value="profile" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Settings</CardTitle>
-              <CardDescription>
-                Update your profile information
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveProfile} className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Profile Photo</Label>
-                  <AvatarUpload
-                    value={avatarUrl || user?.avatarUrl || null}
-                    onChange={(url) => setAvatarUrl(url || "")}
-                    fallbackName={displayName || user?.displayName || ""}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="displayName">Display Name</Label>
-                  <Input
-                    id="displayName"
-                    placeholder={user?.displayName || "Your name"}
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input value={user?.email || ""} disabled />
-                  <p className="text-xs text-muted-foreground">
-                    Email cannot be changed
-                  </p>
-                </div>
-
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Save Changes
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="appearance">
-          <AppearanceSettings />
-        </TabsContent>
-
-        {isAdmin && (
-          <TabsContent value="users">
-            <UserManagement />
-          </TabsContent>
-        )}
-
-        {isAdmin && (
-          <TabsContent value="emoji">
-            <EmojiManagement />
-          </TabsContent>
-        )}
-      </Tabs>
-    </div>
-  );
-}
-
-function UserManagement() {
-  const { data, isLoading } = api.user.list.useQuery({ limit: 50 });
-  const utils = api.useUtils();
-
-  const updateRoleMutation = api.user.updateRole.useMutation({
-    onSuccess: () => {
-      utils.user.list.invalidate();
-    },
-  });
-
-  if (isLoading) {
-    return (
+      {/* Profile Section */}
       <Card>
-        <CardContent className="py-8">
-          <div className="flex justify-center">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+          <CardDescription>
+            Update your profile information
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSaveProfile} className="space-y-6">
+            <div className="space-y-2">
+              <Label>Profile Photo</Label>
+              <AvatarUpload
+                value={avatarUrl || user?.avatarUrl || null}
+                onChange={(url) => setAvatarUrl(url || "")}
+                fallbackName={displayName || user?.displayName || ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="displayName">Display Name</Label>
+              <Input
+                id="displayName"
+                placeholder={user?.displayName || "Your name"}
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={user?.email || ""} disabled />
+              <p className="text-xs text-muted-foreground">
+                Email cannot be changed
+              </p>
+            </div>
+
+            <Button type="submit" disabled={updateMutation.isPending}>
+              {updateMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save Changes
+            </Button>
+          </form>
         </CardContent>
       </Card>
-    );
-  }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>User Management</CardTitle>
-        <CardDescription>
-          Manage user roles and permissions
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="divide-y">
-          {data?.users.map((user) => (
-            <div key={user.id} className="flex items-center justify-between py-4">
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarImage src={user.avatarUrl || undefined} />
-                  <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">{user.displayName}</p>
-                  <p className="text-sm text-muted-foreground">{user.email}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{user.role}</span>
-                {user.role !== "OWNER" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      updateRoleMutation.mutate({
-                        userId: user.id,
-                        role: user.role === "ADMIN" ? "MEMBER" : "ADMIN",
-                      })
-                    }
-                    disabled={updateRoleMutation.isPending}
-                  >
-                    {user.role === "ADMIN" ? "Remove Admin" : "Make Admin"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+      {/* Appearance Section */}
+      <AppearanceSettings />
+    </div>
   );
 }
 
@@ -266,96 +151,6 @@ function AppearanceSettings() {
             })}
           </div>
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function EmojiManagement() {
-  const [name, setName] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const utils = api.useUtils();
-
-  const { data: emoji, isLoading } = api.reaction.listEmoji.useQuery();
-
-  const createMutation = api.reaction.createEmoji.useMutation({
-    onSuccess: () => {
-      setName("");
-      setImageUrl(null);
-      utils.reaction.listEmoji.invalidate();
-    },
-  });
-
-  const deleteMutation = api.reaction.deleteEmoji.useMutation({
-    onSuccess: () => {
-      utils.reaction.listEmoji.invalidate();
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !imageUrl) return;
-    createMutation.mutate({ name, imageUrl });
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Custom Emoji</CardTitle>
-        <CardDescription>
-          Add custom emoji for reactions. Upload PNG, GIF, WebP, or JPEG images (max 1MB).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <form onSubmit={handleSubmit} className="flex items-end gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="emoji-image" className="text-sm">Image</Label>
-            <EmojiUpload value={imageUrl} onChange={setImageUrl} />
-          </div>
-          <div className="flex-1 space-y-2">
-            <Label htmlFor="emoji-name" className="text-sm">Name</Label>
-            <Input
-              id="emoji-name"
-              placeholder="emoji_name"
-              value={name}
-              onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-            />
-          </div>
-          <Button type="submit" disabled={!name || !imageUrl || createMutation.isPending}>
-            {createMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Add"
-            )}
-          </Button>
-        </form>
-
-        {isLoading ? (
-          <div className="flex justify-center py-4">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-4 gap-4">
-            {emoji?.map((e) => (
-              <div
-                key={e.id}
-                className="flex items-center justify-between rounded-lg border p-2"
-              >
-                <div className="flex items-center gap-2">
-                  <EmojiImage url={e.imageUrl} alt={e.name} />
-                  <span className="text-sm">:{e.name}:</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteMutation.mutate({ id: e.id })}
-                >
-                  ×
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

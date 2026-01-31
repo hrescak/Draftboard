@@ -31,62 +31,66 @@ import {
 } from "lucide-react";
 import { $createAttachmentNode, type AttachmentType } from "../nodes/AttachmentNode";
 import { api } from "~/lib/trpc/client";
+import { cn } from "~/lib/utils";
 
 interface CommandOption {
   name: string;
   command: string;
   icon: React.ReactNode;
-  description: string;
+  description?: string;
+  section: "media" | "blocks";
 }
 
 const COMMANDS: CommandOption[] = [
-  {
-    name: "Heading 1",
-    command: "heading1",
-    icon: <Heading1 className="h-4 w-4" />,
-    description: "Large section heading",
-  },
-  {
-    name: "Heading 2",
-    command: "heading2",
-    icon: <Heading2 className="h-4 w-4" />,
-    description: "Medium section heading",
-  },
-  {
-    name: "Heading 3",
-    command: "heading3",
-    icon: <Heading3 className="h-4 w-4" />,
-    description: "Small section heading",
-  },
-  {
-    name: "Bullet List",
-    command: "bulletList",
-    icon: <List className="h-4 w-4" />,
-    description: "Create a bullet list",
-  },
-  {
-    name: "Numbered List",
-    command: "numberedList",
-    icon: <ListOrdered className="h-4 w-4" />,
-    description: "Create a numbered list",
-  },
-  {
-    name: "Quote",
-    command: "quote",
-    icon: <Quote className="h-4 w-4" />,
-    description: "Add a block quote",
-  },
   {
     name: "Image",
     command: "image",
     icon: <ImagePlus className="h-4 w-4" />,
     description: "Upload an image",
+    section: "media",
   },
   {
     name: "File",
     command: "file",
     icon: <FileUp className="h-4 w-4" />,
     description: "Upload any file",
+    section: "media",
+  },
+  {
+    name: "Heading 1",
+    command: "heading1",
+    icon: <Heading1 className="h-4 w-4" />,
+    section: "blocks",
+  },
+  {
+    name: "Heading 2",
+    command: "heading2",
+    icon: <Heading2 className="h-4 w-4" />,
+    section: "blocks",
+  },
+  {
+    name: "Heading 3",
+    command: "heading3",
+    icon: <Heading3 className="h-4 w-4" />,
+    section: "blocks",
+  },
+  {
+    name: "Bullet List",
+    command: "bulletList",
+    icon: <List className="h-4 w-4" />,
+    section: "blocks",
+  },
+  {
+    name: "Numbered List",
+    command: "numberedList",
+    icon: <ListOrdered className="h-4 w-4" />,
+    section: "blocks",
+  },
+  {
+    name: "Quote",
+    command: "quote",
+    icon: <Quote className="h-4 w-4" />,
+    section: "blocks",
   },
 ];
 
@@ -111,7 +115,7 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
     return COMMANDS.filter(
       (cmd) =>
         cmd.name.toLowerCase().includes(lowerQuery) ||
-        cmd.description.toLowerCase().includes(lowerQuery) ||
+        cmd.description?.toLowerCase().includes(lowerQuery) ||
         cmd.command.toLowerCase().includes(lowerQuery)
     );
   }, [query]);
@@ -395,31 +399,43 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
       {isOpen && filteredCommands.length > 0 && createPortal(
         <div
           ref={menuRef}
-          className="absolute z-50 min-w-[280px] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+          className="absolute z-50 min-w-[200px] overflow-hidden rounded-lg border bg-popover p-1 shadow-lg animate-in fade-in-0 zoom-in-95"
           style={{ top: position.top, left: position.left }}
         >
-          <ul role="listbox">
-            {filteredCommands.map((option, index) => (
-              <li
-                key={option.command}
-                role="option"
-                aria-selected={selectedIndex === index}
-                onClick={() => executeCommand(option.command)}
-                onMouseEnter={() => setSelectedIndex(index)}
-                className={`flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm ${
-                  selectedIndex === index ? "bg-accent text-accent-foreground" : ""
-                }`}
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-background">
-                  {option.icon}
-                </div>
-                <div>
-                  <p className="font-medium">{option.name}</p>
-                  <p className="text-xs text-muted-foreground">{option.description}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <p className="px-2 py-1 text-xs font-medium text-muted-foreground">
+            Add blocks
+          </p>
+          {filteredCommands.map((option, index) => {
+            const prevOption = filteredCommands[index - 1];
+            const showDivider = prevOption && prevOption.section === "media" && option.section === "blocks";
+            
+            return (
+              <div key={option.command}>
+                {showDivider && <div className="my-1 h-px bg-border" />}
+                <button
+                  type="button"
+                  onClick={() => executeCommand(option.command)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+                    selectedIndex === index ? "bg-muted" : "hover:bg-muted"
+                  )}
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border bg-background">
+                    {option.icon}
+                  </div>
+                  {option.description ? (
+                    <div className="text-left">
+                      <p className="font-medium">{option.name}</p>
+                      <p className="text-xs text-muted-foreground">{option.description}</p>
+                    </div>
+                  ) : (
+                    <span>{option.name}</span>
+                  )}
+                </button>
+              </div>
+            );
+          })}
         </div>,
         anchorElem
       )}

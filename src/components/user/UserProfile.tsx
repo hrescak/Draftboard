@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { UserAvatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
-import { formatRelativeTime, getInitials } from "~/lib/utils";
-import { Loader2, Calendar, Settings, LogOut } from "lucide-react";
+import { formatRelativeTime } from "~/lib/utils";
+import { Loader2, Calendar, Settings, LogOut, Shield } from "lucide-react";
 import { PostCard } from "~/components/feed/PostCard";
 import { api } from "~/lib/trpc/client";
 
@@ -68,12 +68,7 @@ export function UserProfile({ user }: UserProfileProps) {
     <div className="space-y-8">
       {/* Profile Header */}
       <div className="flex items-start gap-6">
-        <Avatar className="h-24 w-24">
-          <AvatarImage src={user.avatarUrl ?? undefined} />
-          <AvatarFallback className="text-2xl">
-            {getInitials(user.displayName)}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar avatarUrl={user.avatarUrl} name={user.displayName} className="h-24 w-24" />
         <div className="flex-1 space-y-2">
           <h1 className="text-3xl font-bold">{user.displayName}</h1>
           <p className="text-muted-foreground">{user.email}</p>
@@ -86,21 +81,31 @@ export function UserProfile({ user }: UserProfileProps) {
 
       {/* Mobile-only: Settings and Sign Out for own profile */}
       {isOwnProfile && (
-        <div className="flex gap-3 sm:hidden">
-          <Button variant="outline" className="flex-1" asChild>
-            <Link href="/settings">
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </Link>
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1 text-destructive hover:text-destructive"
-            onClick={() => signOut({ callbackUrl: "/sign-in" })}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign out
-          </Button>
+        <div className="flex flex-col gap-3 sm:hidden">
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" asChild>
+              <Link href="/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 text-destructive hover:text-destructive"
+              onClick={() => signOut({ callbackUrl: "/sign-in" })}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
+          {(session?.user?.role === "ADMIN" || session?.user?.role === "OWNER") && (
+            <Button variant="outline" className="w-full" asChild>
+              <Link href="/admin/settings">
+                <Shield className="mr-2 h-4 w-4" />
+                Site Admin
+              </Link>
+            </Button>
+          )}
         </div>
       )}
 

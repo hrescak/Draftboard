@@ -5,8 +5,9 @@ Tablestakes
 - [ ] Polish
 - [ ] Icon / Logo
 - [ ] Readme
-- [ ] Attaachment viewer should open with the post on the left, attachment selected and scrolled to, and fullscreenable.
+- [ ] Attachment viewer should open with the post on the left, attachment selected and scrolled to, and fullscreenable.
 - [ ] add project descriptions, example link pairings and make the cover photo drop area small.
+- [ ] auto-saved drafts
 
 
 

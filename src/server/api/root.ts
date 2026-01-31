@@ -6,6 +6,8 @@ import { reactionRouter } from "~/server/api/routers/reaction";
 import { projectRouter } from "~/server/api/routers/project";
 import { notificationRouter } from "~/server/api/routers/notification";
 import { uploadRouter } from "~/server/api/routers/upload";
+import { siteRouter } from "~/server/api/routers/site";
+import { draftRouter } from "~/server/api/routers/draft";
 
 export const appRouter = createTRPCRouter({
   post: postRouter,
@@ -15,6 +17,8 @@ export const appRouter = createTRPCRouter({
   project: projectRouter,
   notification: notificationRouter,
   upload: uploadRouter,
+  site: siteRouter,
+  draft: draftRouter,
 });
 
 export type AppRouter = typeof appRouter;

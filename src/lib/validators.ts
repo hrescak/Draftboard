@@ -113,3 +113,16 @@ export const createEmojiSchema = z.object({
   name: z.string().min(2).max(32).regex(/^[a-z0-9_]+$/, "Only lowercase letters, numbers, and underscores"),
   imageUrl: z.string().url(),
 });
+
+// Draft validators
+export const saveDraftSchema = z.object({
+  id: z.string().optional(), // If provided, update existing draft; otherwise create new
+  title: z.string().max(200).optional().nullable(),
+  content: z.any().optional().nullable(), // Lexical editor state JSON
+  liveUrl: z.string().url().optional().nullable(),
+  projectIds: z.array(z.string()).default([]),
+});
+
+export const deleteDraftSchema = z.object({
+  id: z.string(),
+});

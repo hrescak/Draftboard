@@ -2,62 +2,14 @@
 
 import { useState, useRef } from "react";
 import { Button } from "~/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { UserAvatar } from "~/components/ui/avatar";
 import { api } from "~/lib/trpc/client";
-import { Loader2, Upload, X, Camera } from "lucide-react";
-import { getInitials } from "~/lib/utils";
+import { Loader2, X, Camera } from "lucide-react";
 
 interface AvatarUploadProps {
   value: string | null;
   onChange: (url: string | null) => void;
   fallbackName?: string;
-}
-
-// Extract R2 key from URL
-function extractR2Key(url: string): string | null {
-  const urlWithoutParams = url.split("?")[0];
-  const match = urlWithoutParams?.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
-}
-
-// Check if URL is already a signed URL
-function isSignedUrl(url: string): boolean {
-  return url.includes("X-Amz-") || url.includes("x-amz-");
-}
-
-function SignedAvatarImage({ url, fallbackName }: { url: string; fallbackName: string }) {
-  const alreadySigned = isSignedUrl(url);
-  const r2Key = !alreadySigned ? extractR2Key(url) : null;
-
-  const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
-    {
-      enabled: !!r2Key && !alreadySigned,
-      staleTime: 30 * 60 * 1000,
-      refetchOnWindowFocus: false,
-    }
-  );
-
-  const displayUrl = alreadySigned ? url : signedUrlData?.url || url;
-
-  if (!alreadySigned && isLoading && r2Key) {
-    return (
-      <Avatar className="h-20 w-20">
-        <AvatarFallback className="text-xl">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </AvatarFallback>
-      </Avatar>
-    );
-  }
-
-  return (
-    <Avatar className="h-20 w-20">
-      <AvatarImage src={displayUrl} />
-      <AvatarFallback className="text-xl">
-        {getInitials(fallbackName)}
-      </AvatarFallback>
-    </Avatar>
-  );
 }
 
 export function AvatarUpload({ value, onChange, fallbackName = "" }: AvatarUploadProps) {
@@ -139,15 +91,7 @@ export function AvatarUpload({ value, onChange, fallbackName = "" }: AvatarUploa
       />
 
       <div className="flex items-center gap-4">
-        {value ? (
-          <SignedAvatarImage url={value} fallbackName={fallbackName} />
-        ) : (
-          <Avatar className="h-20 w-20">
-            <AvatarFallback className="text-xl">
-              {getInitials(fallbackName)}
-            </AvatarFallback>
-          </Avatar>
-        )}
+        <UserAvatar avatarUrl={value} name={fallbackName} className="h-20 w-20" />
 
         <div className="flex flex-col gap-2">
           <Button

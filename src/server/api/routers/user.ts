@@ -9,10 +9,41 @@ import {
 } from "~/server/api/trpc";
 import { signUpSchema, updateProfileSchema } from "~/lib/validators";
 
+// Extended signup schema that accepts optional invite token
+const registerSchema = signUpSchema.extend({
+  inviteToken: z.string().optional(),
+});
+
 export const userRouter = createTRPCRouter({
   register: publicProcedure
-    .input(signUpSchema)
+    .input(registerSchema)
     .mutation(async ({ ctx, input }) => {
+      // Check if this is the first user (no invite needed)
+      const userCount = await ctx.db.user.count();
+      const isFirstUser = userCount === 0;
+
+      // If not first user, require valid invite token
+      if (!isFirstUser) {
+        if (!input.inviteToken) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Registration requires an invite link",
+          });
+        }
+
+        // Validate invite token
+        const settings = await ctx.db.siteSettings.findFirst({
+          where: { inviteToken: input.inviteToken },
+        });
+
+        if (!settings) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Invalid or expired invite link",
+          });
+        }
+      }
+
       const existingUser = await ctx.db.user.findUnique({
         where: { email: input.email },
       });
@@ -26,9 +57,8 @@ export const userRouter = createTRPCRouter({
 
       const passwordHash = await hash(input.password, 12);
 
-      // Check if this is the first user (make them OWNER)
-      const userCount = await ctx.db.user.count();
-      const role = userCount === 0 ? "OWNER" : "MEMBER";
+      // First user becomes OWNER, others are MEMBER
+      const role = isFirstUser ? "OWNER" : "MEMBER";
 
       const user = await ctx.db.user.create({
         data: {
@@ -45,7 +75,7 @@ export const userRouter = createTRPCRouter({
         },
       });
 
-      return user;
+      return { ...user, isFirstUser };
     }),
 
   me: protectedProcedure.query(async ({ ctx }) => {

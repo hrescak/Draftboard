@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "~/lib/utils";
-import { Home, FolderKanban, Bell, Plus, Settings, User } from "lucide-react";
+import { Home, FolderKanban, Bell, Plus, Settings, User, Shield, FileText } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "~/components/ui/tooltip";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { UserAvatar } from "~/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +18,40 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "~/components/ui/popover";
 import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
-import { getInitials } from "~/lib/utils";
+import { api } from "~/lib/trpc/client";
+import { useState } from "react";
+
+// Thumbnail component with error handling for draft images
+function DraftThumbnail({ url }: { url: string | null }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (!url || hasError) {
+    return (
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted">
+        <FileText className="h-4 w-4 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-8 w-8 shrink-0 overflow-hidden rounded bg-muted">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt=""
+        className="h-full w-full object-cover"
+        onError={() => setHasError(true)}
+      />
+    </div>
+  );
+}
 
 const navItems = [
   { href: "/", label: "Home", icon: Home },
@@ -32,7 +63,6 @@ const mobileNavItems = [
   { href: "/", label: "Home", icon: Home },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/compose", label: "Add", icon: Plus },
 ];
 
 interface MainNavProps {
@@ -41,11 +71,50 @@ interface MainNavProps {
     name: string;
     email: string;
     image?: string | null;
+    role: "MEMBER" | "ADMIN" | "OWNER";
   };
 }
 
 export function MainNav({ user }: MainNavProps) {
   const pathname = usePathname();
+  const [composeOpen, setComposeOpen] = useState(false);
+  
+  // Always fetch drafts to know whether to show popover or direct link
+  const { data: drafts, error: draftsError } = api.draft.list.useQuery();
+
+  // Log error for debugging
+  if (draftsError) {
+    console.error("Failed to fetch drafts:", draftsError.message);
+  }
+
+  const hasDrafts = drafts && drafts.length > 0;
+
+  // Helper to format relative time
+  const formatRelativeTime = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - new Date(date).getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  };
+
+  // Get display info for a draft
+  const getDraftDisplayInfo = (draft: {
+    id: string;
+    title: string | null;
+    preview: string | null;
+    firstImageUrl: string | null;
+    updatedAt: Date;
+  }) => {
+    if (draft.title) return draft.title;
+    if (draft.preview) return draft.preview.slice(0, 40) + (draft.preview.length > 40 ? "..." : "");
+    return "Untitled draft";
+  };
 
   return (
     <>
@@ -88,18 +157,76 @@ export function MainNav({ user }: MainNavProps) {
             );
           })}
 
-          {/* Compose button */}
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Link
-                href="/compose"
-                className="flex h-12 w-12 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
-              >
-                <Plus className="h-6 w-6" />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">New Post</TooltipContent>
-          </Tooltip>
+          {/* Compose button - direct link if no drafts, popover if drafts exist */}
+          {hasDrafts ? (
+            <Popover open={composeOpen} onOpenChange={setComposeOpen}>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex h-12 w-12 items-center justify-center rounded-xl transition-colors hover:bg-secondary/50 hover:text-foreground",
+                        composeOpen ? "bg-secondary text-foreground" : "text-muted-foreground"
+                      )}
+                    >
+                      <Plus className="h-6 w-6" />
+                    </button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="right">New Post</TooltipContent>
+              </Tooltip>
+              <PopoverContent side="right" align="start" className="w-72 p-0">
+                <div className="p-2">
+                  <Link
+                    href="/compose"
+                    onClick={() => setComposeOpen(false)}
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
+                  >
+                    <Plus className="h-4 w-4" />
+                    New post
+                  </Link>
+                </div>
+                <div className="border-t" />
+                <div className="p-2">
+                  <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                    Drafts
+                  </p>
+                  <div className="space-y-0.5">
+                    {drafts.map((draft) => (
+                      <Link
+                        key={draft.id}
+                        href={`/compose?draft=${draft.id}`}
+                        onClick={() => setComposeOpen(false)}
+                        className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-secondary"
+                      >
+                        <DraftThumbnail url={draft.firstImageUrl} />
+                        <div className="flex-1 overflow-hidden">
+                          <p className="truncate font-medium">
+                            {getDraftDisplayInfo(draft)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatRelativeTime(draft.updatedAt)}
+                          </p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/compose"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+                >
+                  <Plus className="h-6 w-6" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">New Post</TooltipContent>
+            </Tooltip>
+          )}
         </nav>
 
         {/* Profile at bottom */}
@@ -109,10 +236,7 @@ export function MainNav({ user }: MainNavProps) {
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   <button className="flex h-12 w-12 items-center justify-center rounded-xl transition-colors cursor-pointer hover:bg-secondary/50">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.image ?? undefined} alt={user.name} />
-                      <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-                    </Avatar>
+                    <UserAvatar avatarUrl={user.image} name={user.name} className="h-8 w-8" />
                   </button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -140,6 +264,14 @@ export function MainNav({ user }: MainNavProps) {
                   Settings
                 </Link>
               </DropdownMenuItem>
+              {(user.role === "ADMIN" || user.role === "OWNER") && (
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/settings">
+                    <Shield className="mr-2 h-4 w-4" />
+                    Site Admin
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
@@ -176,6 +308,60 @@ export function MainNav({ user }: MainNavProps) {
             </Link>
           );
         })}
+
+        {/* Mobile Compose button - direct link if no drafts, popover if drafts exist */}
+        {hasDrafts ? (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-muted-foreground transition-colors">
+                <Plus className="h-6 w-6" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="top" align="center" className="w-72 p-0">
+              <div className="p-2">
+                <Link
+                  href="/compose"
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
+                >
+                  <Plus className="h-4 w-4" />
+                  New post
+                </Link>
+              </div>
+              <div className="border-t" />
+              <div className="max-h-64 overflow-y-auto p-2">
+                <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  Drafts
+                </p>
+                <div className="space-y-0.5">
+                  {drafts.map((draft) => (
+                    <Link
+                      key={draft.id}
+                      href={`/compose?draft=${draft.id}`}
+                      className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-secondary"
+                    >
+                      <DraftThumbnail url={draft.firstImageUrl} />
+                      <div className="flex-1 overflow-hidden">
+                        <p className="truncate font-medium">
+                          {getDraftDisplayInfo(draft)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRelativeTime(draft.updatedAt)}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <Link
+            href="/compose"
+            className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-muted-foreground transition-colors"
+          >
+            <Plus className="h-6 w-6" />
+          </Link>
+        )}
 
         {/* Profile tab */}
         <Link

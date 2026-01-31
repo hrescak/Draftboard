@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { UserAvatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -13,7 +13,6 @@ import {
 } from "~/components/ui/dropdown-menu";
 import {
   formatRelativeTime,
-  getInitials,
   truncateText,
 } from "~/lib/utils";
 import { MessageCircle, ExternalLink, ChevronDown, Image as ImageIcon, Play, FileIcon } from "lucide-react";
@@ -97,12 +96,7 @@ export function PostCard({ post }: PostCardProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href={`/user/${post.author.id}`}>
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={post.author.avatarUrl ?? undefined} />
-                <AvatarFallback>
-                  {getInitials(post.author.displayName)}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar avatarUrl={post.author.avatarUrl} name={post.author.displayName} className="h-10 w-10" />
             </Link>
             <div className="flex flex-col">
               <div className="flex items-center gap-2 text-sm">

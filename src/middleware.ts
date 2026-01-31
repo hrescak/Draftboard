@@ -1,20 +1,44 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Simple middleware that redirects to sign-in if no auth cookie is present
-// This avoids importing server-only code in edge runtime
+// Middleware handles auth redirects
+// Note: Can't access database in edge runtime, so sign-up page handles invite validation
 export function middleware(request: NextRequest) {
   const authCookie = request.cookies.get("authjs.session-token") ||
                      request.cookies.get("__Secure-authjs.session-token");
 
-  // Allow auth pages and API routes
   const pathname = request.nextUrl.pathname;
-  const isAuthPage = pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");
+  
+  // Public routes that don't require auth
+  const isSignIn = pathname.startsWith("/sign-in");
+  const isSignUp = pathname.startsWith("/sign-up");
+  const isInvite = pathname.startsWith("/invite");
   const isApiRoute = pathname.startsWith("/api/");
   const isStaticFile = pathname.startsWith("/_next/") ||
                        pathname.startsWith("/favicon.ico");
 
-  if (isAuthPage || isApiRoute || isStaticFile) {
+  // Always allow API routes and static files
+  if (isApiRoute || isStaticFile) {
+    return NextResponse.next();
+  }
+
+  // Allow invite route (public - validates token and sets cookie)
+  if (isInvite) {
+    return NextResponse.next();
+  }
+
+  // If authenticated, redirect away from auth pages to home
+  if (authCookie && (isSignIn || isSignUp)) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // Allow sign-in page for unauthenticated users
+  if (isSignIn) {
+    return NextResponse.next();
+  }
+
+  // Allow sign-up page - the page itself checks for first-user or invite cookie
+  if (isSignUp) {
     return NextResponse.next();
   }
 
