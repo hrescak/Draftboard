@@ -83,3 +83,18 @@ export function isLoomUrl(url: string): boolean {
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
 }
+
+/**
+ * Returns the singular or plural form of a word based on count.
+ * @example pluralize(1, "post") => "post"
+ * @example pluralize(5, "post") => "posts"
+ * @example pluralize(1, "reply", "replies") => "reply"
+ * @example pluralize(2, "reply", "replies") => "replies"
+ */
+export function pluralize(
+  count: number,
+  singular: string,
+  plural?: string
+): string {
+  return count === 1 ? singular : (plural ?? `${singular}s`);
+}

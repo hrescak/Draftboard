@@ -28,6 +28,8 @@ import { SlashCommandPlugin } from "./plugins/SlashCommandPlugin";
 import { DragDropPlugin } from "./plugins/DragDropPlugin";
 import { FloatingAddButtonPlugin } from "./plugins/FloatingAddButtonPlugin";
 import { NodeDeletionPlugin } from "./plugins/NodeDeletionPlugin";
+import { PasteLinkPlugin } from "./plugins/PasteLinkPlugin";
+import { LinkClickPlugin } from "./plugins/LinkClickPlugin";
 import { ToolbarPlugin } from "./toolbar/ToolbarPlugin";
 import { cn } from "~/lib/utils";
 
@@ -172,6 +174,8 @@ export function Editor({
         <OnChangePlugin onChange={handleChange} />
         {editable && <MentionPlugin />}
         {editable && <NodeDeletionPlugin />}
+        {editable && <PasteLinkPlugin />}
+        <LinkClickPlugin />
         {editable && floatingAnchorElem && (
           <>
             <SlashCommandPlugin anchorElem={floatingAnchorElem} />

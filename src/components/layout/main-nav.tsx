@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "~/lib/utils";
-import { Home, FolderKanban, Bell, Plus, Settings, User, Shield, FileText } from "lucide-react";
+import { Home, FolderKanban, Bell, Plus, Settings, User, Shield, FileText, Search, LogOut } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -24,9 +24,9 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 import { signOut } from "next-auth/react";
-import { LogOut } from "lucide-react";
 import { api } from "~/lib/trpc/client";
 import { useState } from "react";
+import { SearchCommand } from "~/components/search/SearchCommand";
 
 // Thumbnail component with error handling for draft images
 function DraftThumbnail({ url }: { url: string | null }) {
@@ -53,15 +53,21 @@ function DraftThumbnail({ url }: { url: string | null }) {
   );
 }
 
-const navItems = [
+const navItemsBeforeSearch = [
   { href: "/", label: "Home", icon: Home },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+];
+
+const navItemsAfterSearch = [
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
-const mobileNavItems = [
+const mobileNavItemsBeforeSearch = [
   { href: "/", label: "Home", icon: Home },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+];
+
+const mobileNavItemsAfterSearch = [
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
@@ -78,6 +84,7 @@ interface MainNavProps {
 export function MainNav({ user }: MainNavProps) {
   const pathname = usePathname();
   const [composeOpen, setComposeOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   
   // Fetch current user data to get fresh avatar URL (session may be stale)
   const { data: currentUser } = api.user.me.useQuery();
@@ -135,7 +142,53 @@ export function MainNav({ user }: MainNavProps) {
 
         {/* Centered navigation items */}
         <nav className="flex flex-1 flex-col items-center justify-center gap-1">
-          {navItems.map((item) => {
+          {navItemsBeforeSearch.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/" && pathname.startsWith(item.href));
+            const Icon = item.icon;
+
+            return (
+              <Tooltip key={item.href} delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex h-12 w-12 items-center justify-center rounded-xl transition-colors",
+                      isActive
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  {item.label}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+
+          {/* Search button - after Projects */}
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="flex h-12 w-12 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+              >
+                <Search className="h-6 w-6" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              Search
+              <kbd className="ml-2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </TooltipContent>
+          </Tooltip>
+
+          {navItemsAfterSearch.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/" && pathname.startsWith(item.href));
@@ -291,9 +344,42 @@ export function MainNav({ user }: MainNavProps) {
         </div>
       </aside>
 
+      {/* Search Command Dialog */}
+      <SearchCommand open={searchOpen} onOpenChange={setSearchOpen} />
+
       {/* Mobile Bottom Tab Bar - shown only on mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t bg-background px-2 sm:hidden">
-        {mobileNavItems.map((item) => {
+        {mobileNavItemsBeforeSearch.map((item) => {
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/" && pathname.startsWith(item.href));
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex h-12 w-12 flex-col items-center justify-center rounded-xl transition-colors",
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              )}
+            >
+              <Icon className="h-6 w-6" />
+            </Link>
+          );
+        })}
+
+        {/* Mobile Search button - after Projects */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-muted-foreground transition-colors"
+        >
+          <Search className="h-6 w-6" />
+        </button>
+
+        {mobileNavItemsAfterSearch.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));

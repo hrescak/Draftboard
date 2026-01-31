@@ -7,13 +7,91 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { CoverUpload } from "~/components/projects/CoverUpload";
+import { SimpleMarkdownEditor } from "~/components/editor/SimpleMarkdownEditor";
 import { api } from "~/lib/trpc/client";
 import { Loader2, Plus, Trash2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import type { SerializedEditorState } from "lexical";
 
 interface ProjectUrl {
   title: string;
   url: string;
+}
+
+// Check if editor state has actual content
+function hasContent(editorState: SerializedEditorState | null): boolean {
+  if (!editorState) return false;
+
+  const root = editorState.root;
+  if (!root || !Array.isArray(root.children)) return false;
+
+  for (const child of root.children) {
+    if (child.type === "paragraph" && Array.isArray(child.children)) {
+      for (const textNode of child.children) {
+        if (textNode.type === "text" && textNode.text?.trim()) {
+          return true;
+        }
+      }
+    }
+    if (child.type === "list") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Check if content is a Lexical editor state
+function isLexicalContent(content: unknown): content is SerializedEditorState {
+  if (!content || typeof content !== "object") return false;
+  const c = content as Record<string, unknown>;
+  return c.root !== undefined && typeof c.root === "object";
+}
+
+// Convert old { text: string } format to Lexical editor state
+function convertOldFormatToLexical(content: unknown): SerializedEditorState | null {
+  if (!content || typeof content !== "object") return null;
+
+  // If it's already Lexical format, return it
+  if (isLexicalContent(content)) {
+    return content;
+  }
+
+  // Convert old { text: string } format
+  const c = content as Record<string, unknown>;
+  if (typeof c.text === "string" && c.text.trim()) {
+    return {
+      root: {
+        children: [
+          {
+            children: [
+              {
+                detail: 0,
+                format: 0,
+                mode: "normal",
+                style: "",
+                text: c.text,
+                type: "text",
+                version: 1,
+              },
+            ],
+            direction: "ltr",
+            format: "",
+            indent: 0,
+            type: "paragraph",
+            version: 1,
+          },
+        ],
+        direction: "ltr",
+        format: "",
+        indent: 0,
+        type: "root",
+        version: 1,
+      },
+    } as SerializedEditorState;
+  }
+
+  return null;
 }
 
 export default function EditProjectPage() {
@@ -22,6 +100,8 @@ export default function EditProjectPage() {
   const projectId = params.id as string;
 
   const [name, setName] = useState("");
+  const [description, setDescription] = useState<SerializedEditorState | null>(null);
+  const [initialDescription, setInitialDescription] = useState<SerializedEditorState | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [urls, setUrls] = useState<ProjectUrl[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -41,6 +121,10 @@ export default function EditProjectPage() {
   useEffect(() => {
     if (project && !isInitialized) {
       setName(project.name);
+      // Convert description to Lexical format (handles both old and new format)
+      const lexicalDesc = convertOldFormatToLexical(project.description);
+      setInitialDescription(lexicalDesc);
+      setDescription(lexicalDesc);
       setCoverUrl(project.coverUrl);
       setUrls(
         project.urls.map((u) => ({
@@ -59,6 +143,7 @@ export default function EditProjectPage() {
     updateMutation.mutate({
       id: projectId,
       name: name.trim(),
+      description: hasContent(description) ? description : null,
       coverUrl: coverUrl,
       urls: urls.filter((u) => u.title && u.url),
     });
@@ -124,6 +209,24 @@ export default function EditProjectPage() {
                 placeholder="My Awesome Project"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Supports **bold**, *italic*, [links](url), and lists
+              </p>
+              <div className="rounded-md border bg-background px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
+                {isInitialized && (
+                  <SimpleMarkdownEditor
+                    key={projectId} // Reset editor when project changes
+                    initialContent={initialDescription}
+                    onChange={setDescription}
+                    placeholder="What is this project about?"
+                    minHeight="60px"
+                  />
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">

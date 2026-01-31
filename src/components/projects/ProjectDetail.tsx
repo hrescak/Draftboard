@@ -25,9 +25,11 @@ import {
 import { api } from "~/lib/trpc/client";
 import { PostCard } from "~/components/feed/PostCard";
 import { GridView } from "~/components/feed/GridView";
-import { formatRelativeTime } from "~/lib/utils";
+import { formatRelativeTime, pluralize } from "~/lib/utils";
 import { ExternalLink, Users, List, LayoutGrid, Loader2, FolderKanban, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { SimpleMarkdownContent } from "~/components/editor/SimpleMarkdownEditor";
+import type { SerializedEditorState } from "lexical";
 
 // Extract R2 key from URL
 function extractR2Key(url: string): string | null {
@@ -39,6 +41,35 @@ function extractR2Key(url: string): string | null {
 // Check if URL is already a signed URL
 function isSignedUrl(url: string): boolean {
   return url.includes('X-Amz-') || url.includes('x-amz-');
+}
+
+// Check if content is a Lexical editor state
+function isLexicalContent(content: unknown): content is SerializedEditorState {
+  if (!content || typeof content !== "object") return false;
+  const c = content as Record<string, unknown>;
+  return c.root !== undefined && typeof c.root === "object";
+}
+
+// Render project description (handles both old { text: string } and new Lexical format)
+function ProjectDescription({ description }: { description: unknown }) {
+  if (!description) return null;
+
+  // New Lexical format
+  if (isLexicalContent(description)) {
+    return (
+      <div className="mt-2 text-muted-foreground">
+        <SimpleMarkdownContent content={description} />
+      </div>
+    );
+  }
+
+  // Old { text: string } format
+  const desc = description as { text?: string };
+  if (desc?.text) {
+    return <p className="mt-2 text-muted-foreground">{desc.text}</p>;
+  }
+
+  return null;
 }
 
 function SignedCoverImage({ url, name }: { url: string; name: string }) {
@@ -169,26 +200,27 @@ export function ProjectDetail({ project }: ProjectDetailProps) {
           </div>
         )}
 
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
             {!project.coverUrl && (
               <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10">
                 <FolderKanban className="h-8 w-8 text-primary" />
               </div>
             )}
-            <div>
+            <div className="space-y-1">
               <h1 className="text-3xl font-bold">{project.name}</h1>
               <p className="text-sm text-muted-foreground">
                 Created {formatRelativeTime(new Date(project.createdAt))} ·{" "}
-                {project._count.posts} posts
+                {project._count.posts} {pluralize(project._count.posts, "post")}
               </p>
+              <ProjectDescription description={project.description} />
             </div>
           </div>
 
           {canModify && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="shrink-0">
                   <MoreHorizontal className="h-5 w-5" />
                   <span className="sr-only">Project options</span>
                 </Button>

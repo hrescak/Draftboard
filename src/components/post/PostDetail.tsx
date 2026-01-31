@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
-import { formatRelativeTime } from "~/lib/utils";
+import { formatRelativeTime, pluralize } from "~/lib/utils";
 import { ExternalLink, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react";
 import { EditorContent } from "~/components/editor/Editor";
 import { ReactionButton } from "~/components/reactions/ReactionButton";
@@ -211,7 +211,7 @@ export function PostDetail({ post }: PostDetailProps) {
             count={post.reactions.length}
           />
           <span className="text-sm text-muted-foreground">
-            {post._count.comments} comments
+            {post._count.comments} {pluralize(post._count.comments, "comment")}
           </span>
         </div>
 

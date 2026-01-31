@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "~/components/ui/button";
-import { Textarea } from "~/components/ui/textarea";
+import { SimpleMarkdownEditor } from "~/components/editor/SimpleMarkdownEditor";
 import { api } from "~/lib/trpc/client";
 import { Loader2, Send } from "lucide-react";
+import type { SerializedEditorState } from "lexical";
 
 interface CommentComposerProps {
   postId: string;
@@ -22,88 +23,92 @@ interface CommentComposerProps {
   compact?: boolean;
 }
 
+// Check if editor state has actual content
+function hasContent(editorState: SerializedEditorState | null): boolean {
+  if (!editorState) return false;
+
+  const root = editorState.root;
+  if (!root || !Array.isArray(root.children)) return false;
+
+  // Check if there's any non-empty paragraph
+  for (const child of root.children) {
+    if (child.type === "paragraph" && Array.isArray(child.children)) {
+      for (const textNode of child.children) {
+        if (textNode.type === "text" && textNode.text?.trim()) {
+          return true;
+        }
+      }
+    }
+    // Lists also count as content
+    if (child.type === "list") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function CommentComposer({
   postId,
   parentId,
   attachmentId,
   coordinates,
   onSuccess,
-  placeholder = "Add a comment...",
+  placeholder = "Add a comment... (Markdown supported: **bold**, *italic*, [link](url))",
   compact = false,
 }: CommentComposerProps) {
-  const [text, setText] = useState("");
+  const [content, setContent] = useState<SerializedEditorState | null>(null);
+  const [key, setKey] = useState(0); // Used to reset the editor
   const utils = api.useUtils();
+  const editorRef = useRef<{ clear: () => void } | null>(null);
 
   const createMutation = api.comment.create.useMutation({
     onSuccess: () => {
-      setText("");
+      setContent(null);
+      setKey((k) => k + 1); // Reset editor by changing key
       utils.comment.byPost.invalidate({ postId });
       utils.post.getById.invalidate({ id: postId });
       onSuccess?.();
     },
   });
 
-  const handleSubmit = useCallback(
+  const handleSubmit = useCallback(() => {
+    if (!content || !hasContent(content)) return;
+
+    createMutation.mutate({
+      postId,
+      content,
+      parentId,
+      attachmentId,
+      coordinates,
+    });
+  }, [content, postId, parentId, attachmentId, coordinates, createMutation]);
+
+  const handleFormSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (!text.trim()) return;
-
-      // Create a simple Lexical editor state with the text
-      const content = {
-        root: {
-          children: [
-            {
-              children: [
-                {
-                  detail: 0,
-                  format: 0,
-                  mode: "normal",
-                  style: "",
-                  text: text.trim(),
-                  type: "text",
-                  version: 1,
-                },
-              ],
-              direction: "ltr",
-              format: "",
-              indent: 0,
-              type: "paragraph",
-              version: 1,
-            },
-          ],
-          direction: "ltr",
-          format: "",
-          indent: 0,
-          type: "root",
-          version: 1,
-        },
-      };
-
-      createMutation.mutate({
-        postId,
-        content,
-        parentId,
-        attachmentId,
-        coordinates,
-      });
+      handleSubmit();
     },
-    [text, postId, parentId, attachmentId, coordinates, createMutation]
+    [handleSubmit]
   );
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
-      <Textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder={placeholder}
-        className={compact ? "min-h-[60px]" : "min-h-[80px]"}
-        disabled={createMutation.isPending}
-      />
+    <form onSubmit={handleFormSubmit} className="flex gap-2">
+      <div className="flex-1 rounded-md border bg-background px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
+        <SimpleMarkdownEditor
+          key={key}
+          onChange={setContent}
+          placeholder={placeholder}
+          disabled={createMutation.isPending}
+          minHeight={compact ? "40px" : "60px"}
+          editorRef={editorRef}
+        />
+      </div>
       <Button
         type="submit"
         size={compact ? "sm" : "default"}
-        disabled={!text.trim() || createMutation.isPending}
-        className="shrink-0"
+        disabled={!hasContent(content) || createMutation.isPending}
+        className="shrink-0 self-end"
       >
         {createMutation.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />

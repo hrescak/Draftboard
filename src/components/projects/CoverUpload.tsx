@@ -132,7 +132,7 @@ export function CoverUpload({ value, onChange }: CoverUploadProps) {
       />
 
       {value ? (
-        <div className="relative aspect-video overflow-hidden rounded-lg border">
+        <div className="relative h-32 overflow-hidden rounded-lg border">
           <SignedCoverImage url={value} alt="Cover preview" />
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity hover:opacity-100">
             <div className="flex gap-2">
@@ -168,21 +168,18 @@ export function CoverUpload({ value, onChange }: CoverUploadProps) {
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50 transition-colors hover:border-muted-foreground/50 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50 transition-colors hover:border-muted-foreground/50 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isUploading ? (
             <>
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Uploading...</span>
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Uploading...</span>
             </>
           ) : (
             <>
-              <ImageIcon className="h-8 w-8 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Click to upload a cover image
-              </span>
-              <span className="text-xs text-muted-foreground/75">
-                PNG, JPG, GIF up to 10MB
+              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
+                Click to upload cover image (PNG, JPG, GIF up to 10MB)
               </span>
             </>
           )}

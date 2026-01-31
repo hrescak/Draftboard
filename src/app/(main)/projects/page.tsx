@@ -7,7 +7,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Plus, FolderKanban, FileText, Users, Loader2 } from "lucide-react";
-import { formatRelativeTime } from "~/lib/utils";
+import { formatRelativeTime, pluralize } from "~/lib/utils";
 
 // Extract R2 key from URL
 function extractR2Key(url: string): string | null {
@@ -167,11 +167,11 @@ export default function ProjectsPage() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <FileText className="h-4 w-4" />
-                      <span>{project._count.posts} posts</span>
+                      <span>{project._count.posts} {pluralize(project._count.posts, "post")}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Users className="h-4 w-4" />
-                      <span>{project._count.members} members</span>
+                      <span>{project._count.members} {pluralize(project._count.members, "member")}</span>
                     </div>
                   </div>
                 </CardContent>

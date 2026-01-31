@@ -43,6 +43,7 @@
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "lexical": "^0.31.2",
     "lucide-react": "^0.513.0",
     "next": "^15.3.7",
