@@ -212,11 +212,13 @@ model Notification {
 }
 
 model SiteSettings {
-  id          String   @id @default("default")
-  inviteToken String   @unique @default(cuid())
-  siteName    String   @default("Draftboard")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default("default")
+  inviteToken        String   @unique @default(cuid())
+  siteName           String   @default("Draftboard")
+  discordWebhookUrl  String?
+  slackWebhookUrl    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 model Draft {

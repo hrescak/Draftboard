@@ -5,6 +5,7 @@ import {
   protectedProcedure,
 } from "~/server/api/trpc";
 import { createPostSchema, updatePostSchema, paginationSchema } from "~/lib/validators";
+import { sendPostNotifications } from "~/lib/webhooks";
 
 export const postRouter = createTRPCRouter({
   create: protectedProcedure
@@ -65,6 +66,30 @@ export const postRouter = createTRPCRouter({
           },
         },
       });
+
+      // Send webhook notifications (fire and forget)
+      const settings = await ctx.db.siteSettings.findUnique({
+        where: { id: "default" },
+      });
+
+      if (settings?.discordWebhookUrl || settings?.slackWebhookUrl) {
+        // Get the base URL from headers or use environment variable
+        const host = ctx.headers.get("host") || "localhost:3000";
+        const protocol = ctx.headers.get("x-forwarded-proto") || "http";
+        const baseUrl = process.env.NEXTAUTH_URL || `${protocol}://${host}`;
+
+        sendPostNotifications(
+          {
+            id: post.id,
+            title: post.title,
+            author: post.author,
+            attachments: post.attachments,
+            projects: post.projects,
+          },
+          settings,
+          baseUrl
+        );
+      }
 
       return post;
     }),

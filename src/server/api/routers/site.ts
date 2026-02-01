@@ -79,4 +79,103 @@ export const siteRouter = createTRPCRouter({
 
       return settings;
     }),
+
+  // Admin: Update webhook URLs
+  updateWebhooks: adminProcedure
+    .input(
+      z.object({
+        discordWebhookUrl: z.string().url().nullable().or(z.literal("")),
+        slackWebhookUrl: z.string().url().nullable().or(z.literal("")),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Normalize empty strings to null
+      const discordWebhookUrl = input.discordWebhookUrl || null;
+      const slackWebhookUrl = input.slackWebhookUrl || null;
+
+      const settings = await ctx.db.siteSettings.upsert({
+        where: { id: "default" },
+        update: {
+          discordWebhookUrl,
+          slackWebhookUrl,
+        },
+        create: {
+          id: "default",
+          discordWebhookUrl,
+          slackWebhookUrl,
+        },
+      });
+
+      return settings;
+    }),
+
+  // Admin: Test webhook - sends a test message
+  testWebhook: adminProcedure
+    .input(
+      z.object({
+        type: z.enum(["discord", "slack"]),
+        url: z.string().url(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { type, url } = input;
+
+      try {
+        if (type === "discord") {
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              embeds: [
+                {
+                  title: "Test Notification",
+                  description: "This is a test message from Draftboard. Your Discord webhook is configured correctly!",
+                  color: 0x7c3aed,
+                  footer: { text: "Draftboard" },
+                  timestamp: new Date().toISOString(),
+                },
+              ],
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Discord returned ${response.status}`);
+          }
+        } else {
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              blocks: [
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "*Test Notification*",
+                  },
+                },
+                {
+                  type: "section",
+                  text: {
+                    type: "plain_text",
+                    text: "This is a test message from Draftboard. Your Slack webhook is configured correctly!",
+                  },
+                },
+              ],
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Slack returned ${response.status}`);
+          }
+        }
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    }),
 });
