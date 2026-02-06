@@ -18,11 +18,11 @@ interface SearchCommandProps {
 }
 
 // Thumbnail component with error handling
-function SearchThumbnail({ 
-  url, 
-  fallbackIcon: FallbackIcon 
-}: { 
-  url: string | null; 
+function SearchThumbnail({
+  url,
+  fallbackIcon: FallbackIcon
+}: {
+  url: string | null;
   fallbackIcon: React.ElementType;
 }) {
   const [hasError, setHasError] = React.useState(false);
