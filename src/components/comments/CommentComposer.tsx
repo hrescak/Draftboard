@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { UserAvatar } from "~/components/ui/avatar";
 import { SimpleMarkdownEditor } from "~/components/editor/SimpleMarkdownEditor";
 import { api } from "~/lib/trpc/client";
+import { cn } from "~/lib/utils";
 import { Loader2, Send } from "lucide-react";
 import type { SerializedEditorState } from "lexical";
 
@@ -120,9 +121,15 @@ export function CommentComposer({
         </div>
         <Button
           type="submit"
-          size="sm"
+          variant="ghost"
+          size="icon"
           disabled={!hasContent(content) || createMutation.isPending}
-          className="shrink-0"
+          className={cn(
+            "h-8 w-8 shrink-0",
+            hasContent(content) && !createMutation.isPending
+              ? "text-foreground hover:bg-foreground hover:text-background"
+              : "text-muted-foreground hover:bg-transparent hover:text-muted-foreground"
+          )}
         >
           {createMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
