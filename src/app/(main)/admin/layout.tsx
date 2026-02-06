@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "~/server/auth";
 import { AdminNav } from "./admin-nav";
+import { StickyPageHeader } from "~/components/layout/sticky-page-header";
 
 export default async function AdminLayout({
   children,
@@ -16,10 +17,10 @@ export default async function AdminLayout({
 
   return (
     <div className="space-y-6">
-      <div>
+      <StickyPageHeader>
         <h1 className="text-2xl font-bold mb-4">Site Administration</h1>
         <AdminNav />
-      </div>
+      </StickyPageHeader>
       {children}
     </div>
   );

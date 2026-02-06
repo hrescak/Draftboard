@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { formatRelativeTime } from "~/lib/utils";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { cn } from "~/lib/utils";
+import { StickyPageHeader } from "~/components/layout/sticky-page-header";
 
 function getNotificationText(type: string, actorName: string, postTitle?: string | null) {
   switch (type) {
@@ -104,20 +105,22 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Notifications</h1>
-        {hasUnread && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => markAllAsReadMutation.mutate()}
-            disabled={markAllAsReadMutation.isPending}
-          >
-            <CheckCheck className="mr-2 h-4 w-4" />
-            Mark all as read
-          </Button>
-        )}
-      </div>
+      <StickyPageHeader>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Notifications</h1>
+          {hasUnread && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => markAllAsReadMutation.mutate()}
+              disabled={markAllAsReadMutation.isPending}
+            >
+              <CheckCheck className="mr-2 h-4 w-4" />
+              Mark all as read
+            </Button>
+          )}
+        </div>
+      </StickyPageHeader>
 
       <Card>
         <CardContent className="p-2">

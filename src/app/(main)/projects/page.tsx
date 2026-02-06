@@ -8,6 +8,7 @@ import { Card, CardHeader } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Plus, FolderOpen, Loader2 } from "lucide-react";
 import { formatRelativeTime, pluralize } from "~/lib/utils";
+import { StickyPageHeader } from "~/components/layout/sticky-page-header";
 
 // Extract R2 key from URL
 function extractR2Key(url: string): string | null {
@@ -113,15 +114,17 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Projects</h1>
-        <Button asChild>
-          <Link href="/projects/new">
-            <Plus className="h-4 w-4" />
-            New Project
-          </Link>
-        </Button>
-      </div>
+      <StickyPageHeader>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Projects</h1>
+          <Button asChild>
+            <Link href="/projects/new">
+              <Plus className="h-4 w-4" />
+              New Project
+            </Link>
+          </Button>
+        </div>
+      </StickyPageHeader>
 
       {projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">

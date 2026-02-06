@@ -7,6 +7,7 @@ import { GridView } from "./GridView";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { LayoutGrid, List, Loader2 } from "lucide-react";
 import { FeedSkeleton } from "./FeedSkeleton";
+import { StickyPageHeader } from "~/components/layout/sticky-page-header";
 
 type ViewMode = "feed" | "grid";
 
@@ -90,21 +91,23 @@ export function FeedView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Home</h1>
-        <Tabs value={viewMode} onValueChange={(v) => handleViewModeChange(v as ViewMode)}>
-          <TabsList>
-            <TabsTrigger value="feed" className="gap-2">
-              <List className="h-4 w-4" />
-              <span className="hidden sm:inline">Feed</span>
-            </TabsTrigger>
-            <TabsTrigger value="grid" className="gap-2">
-              <LayoutGrid className="h-4 w-4" />
-              <span className="hidden sm:inline">Grid</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+      <StickyPageHeader>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Home</h1>
+          <Tabs value={viewMode} onValueChange={(v) => handleViewModeChange(v as ViewMode)}>
+            <TabsList>
+              <TabsTrigger value="feed" className="gap-2">
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">Feed</span>
+              </TabsTrigger>
+              <TabsTrigger value="grid" className="gap-2">
+                <LayoutGrid className="h-4 w-4" />
+                <span className="hidden sm:inline">Grid</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </StickyPageHeader>
 
       {viewMode === "feed" ? (
         <div className="space-y-4">
