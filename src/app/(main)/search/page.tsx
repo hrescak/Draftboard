@@ -8,41 +8,7 @@ import { skipToken } from "@tanstack/react-query";
 import { UserAvatar } from "~/components/ui/avatar";
 import { useDebounce } from "~/lib/hooks/useDebounce";
 import { pluralize } from "~/lib/utils";
-
-// Thumbnail component with error handling
-function SearchThumbnail({
-  url,
-  fallbackIcon: FallbackIcon,
-}: {
-  url: string | null;
-  fallbackIcon: React.ElementType;
-}) {
-  const [hasError, setHasError] = React.useState(false);
-
-  React.useEffect(() => {
-    setHasError(false);
-  }, [url]);
-
-  if (!url || hasError) {
-    return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-        <FallbackIcon className="h-5 w-5 text-muted-foreground" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt=""
-        className="h-full w-full object-cover"
-        onError={() => setHasError(true)}
-      />
-    </div>
-  );
-}
+import { SearchThumbnail } from "~/components/search/SearchThumbnail";
 
 export default function SearchPage() {
   const router = useRouter();
@@ -68,7 +34,7 @@ export default function SearchPage() {
   const showEmpty = debouncedQuery.length > 0 && !isLoading && !hasResults;
 
   return (
-    <div className="-mx-4 -mt-4 sm:hidden">
+    <div className="-mx-4 -mt-4">
       {/* Search header */}
       <div className="sticky top-0 z-30 bg-background">
         <div className="flex items-center gap-2 px-3 py-2">
