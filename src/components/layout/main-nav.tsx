@@ -92,7 +92,7 @@ export function MainNav({ user }: MainNavProps) {
 
   // Fetch unread notification count
   const { data: unreadCount } = api.notification.unreadCount.useQuery();
-  
+
   // Hide badge when on notifications page
   const isOnNotifications = pathname === "/notifications";
   const showNotificationBadge = !isOnNotifications && (unreadCount ?? 0) > 0;
@@ -358,11 +358,11 @@ export function MainNav({ user }: MainNavProps) {
         </div>
       </aside>
 
-      {/* Search Command Dialog */}
+      {/* Search Command Dialog (desktop) */}
       <SearchCommand open={searchOpen} onOpenChange={setSearchOpen} />
 
       {/* Mobile Bottom Tab Bar - shown only on mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t bg-background px-2 sm:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t bg-background px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))] sm:hidden">
         {mobileNavItemsBeforeSearch.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -385,13 +385,18 @@ export function MainNav({ user }: MainNavProps) {
           );
         })}
 
-        {/* Mobile Search button - after Projects */}
-        <button
-          onClick={() => setSearchOpen(true)}
-          className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-muted-foreground transition-colors"
+        {/* Mobile Search button - navigates to search page */}
+        <Link
+          href="/search"
+          className={cn(
+            "flex h-12 w-12 flex-col items-center justify-center rounded-xl transition-colors",
+            pathname === "/search"
+              ? "text-foreground"
+              : "text-muted-foreground"
+          )}
         >
           <Search className="h-6 w-6" />
-        </button>
+        </Link>
 
         {mobileNavItemsAfterSearch.map((item) => {
           const isActive =

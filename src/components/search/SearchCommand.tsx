@@ -11,46 +11,11 @@ import { api } from "~/lib/trpc/client";
 import { skipToken } from "@tanstack/react-query";
 import { UserAvatar } from "~/components/ui/avatar";
 import { useDebounce } from "~/lib/hooks/useDebounce";
+import { SearchThumbnail } from "~/components/search/SearchThumbnail";
 
 interface SearchCommandProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-// Thumbnail component with error handling
-function SearchThumbnail({ 
-  url, 
-  fallbackIcon: FallbackIcon 
-}: { 
-  url: string | null; 
-  fallbackIcon: React.ElementType;
-}) {
-  const [hasError, setHasError] = React.useState(false);
-
-  // Reset error state when url changes
-  React.useEffect(() => {
-    setHasError(false);
-  }, [url]);
-
-  if (!url || hasError) {
-    return (
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted">
-        <FallbackIcon className="h-4 w-4 text-muted-foreground" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-8 w-8 shrink-0 overflow-hidden rounded bg-muted">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt=""
-        className="h-full w-full object-cover"
-        onError={() => setHasError(true)}
-      />
-    </div>
-  );
 }
 
 export function SearchCommand({ open, onOpenChange }: SearchCommandProps) {
@@ -183,6 +148,7 @@ export function SearchCommand({ open, onOpenChange }: SearchCommandProps) {
                 <SearchThumbnail
                   url={post.attachments[0]?.thumbnailUrl || post.attachments[0]?.url || null}
                   fallbackIcon={FileText}
+                  size="sm"
                 />
                 <div className="flex flex-1 flex-col overflow-hidden">
                   <span className="truncate font-medium">
@@ -212,6 +178,7 @@ export function SearchCommand({ open, onOpenChange }: SearchCommandProps) {
                 <SearchThumbnail
                   url={project.coverUrl}
                   fallbackIcon={FolderOpen}
+                  size="sm"
                 />
                 <div className="flex flex-1 flex-col overflow-hidden">
                   <span className="truncate font-medium">{project.name}</span>

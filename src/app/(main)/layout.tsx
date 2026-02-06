@@ -17,10 +17,10 @@ export default async function MainLayout({
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen overflow-x-hidden bg-background">
+      <div className="min-h-screen overflow-x-clip bg-background">
         <MainNav user={session.user} />
-        <main className="min-h-screen sm:ml-16">
-          <div className="mx-auto max-w-3xl px-4 pt-4 pb-20 sm:px-6 sm:pb-6">{children}</div>
+        <main className="sm:ml-16">
+          <div className="mx-auto max-w-3xl px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:px-6 sm:pb-6">{children}</div>
         </main>
       </div>
     </TooltipProvider>

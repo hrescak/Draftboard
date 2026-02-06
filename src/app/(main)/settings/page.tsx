@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { api } from "~/lib/trpc/client";
 import { Loader2, Sun, Moon, Monitor } from "lucide-react";
 import { AvatarUpload } from "~/components/settings/AvatarUpload";
+import { StickyPageHeader } from "~/components/layout/sticky-page-header";
 
 export default function SettingsPage() {
   const { update: updateSession } = useSession();
@@ -33,7 +34,9 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <StickyPageHeader>
+        <h1 className="text-2xl font-bold">Settings</h1>
+      </StickyPageHeader>
 
       {/* Profile Section */}
       <Card>
