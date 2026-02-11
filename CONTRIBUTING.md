@@ -73,10 +73,11 @@ src/
 │   │   ├── routers/            # tRPC routers (post, comment, project, user, etc.)
 │   │   ├── root.ts             # Root tRPC router
 │   │   └── trpc.ts             # tRPC initialization and context
-│   ├── auth.ts                 # NextAuth full configuration
+│   ├── auth.ts                 # NextAuth full configuration (providers, callbacks)
 │   ├── auth.config.ts          # Edge-compatible auth config (for middleware)
 │   └── db.ts                   # Prisma client singleton
 ├── lib/
+│   ├── auth-provider.ts        # Auth mode detection (credentials / okta / google)
 │   ├── hooks/                  # Custom React hooks
 │   ├── trpc/                   # tRPC client, provider, and server caller
 │   ├── r2.ts                   # Cloudflare R2 upload utilities
@@ -87,6 +88,29 @@ src/
 └── test/
     └── setup.ts                # Vitest test setup
 ```
+
+## Authentication
+
+Draftboard supports three mutually exclusive authentication providers, selected by environment variables:
+
+| Mode | Trigger | How users join |
+|---|---|---|
+| **Credentials** (default) | No SSO env vars set | Email/password sign-up via invite links |
+| **Okta SSO** | `AUTH_OKTA_*` vars present | Sign in with Okta, auto-provisioned on first login |
+| **Google Workspace** | `AUTH_GOOGLE_*` vars present | Sign in with Google, auto-provisioned on first login |
+
+The active mode is detected at startup by `getAuthMode()` in `src/lib/auth-provider.ts`. Only one provider can be active at a time — the app will throw an error if both Okta and Google are configured.
+
+Key files:
+
+| File | Purpose |
+|---|---|
+| `src/lib/auth-provider.ts` | Detects active auth mode from env vars |
+| `src/server/auth.config.ts` | Edge-compatible auth config (middleware) — dynamically selects provider |
+| `src/server/auth.ts` | Full auth config — provider logic, SSO auto-provisioning, JWT/session callbacks |
+| `src/app/(auth)/sign-in/` | Sign-in page — renders credentials form or SSO button based on mode |
+
+For local development, credentials mode is the default (no extra setup). To test SSO locally, set the appropriate env vars in your `.env` — see `.env.example` for details.
 
 ## Code Conventions
 
@@ -135,6 +159,23 @@ const { data, fetchNextPage, hasNextPage } = api.post.list.useInfiniteQuery(
 );
 const items = data?.pages.flatMap((page) => page.items) ?? [];
 ```
+
+### Auth-Aware UI
+
+Some UI features should be hidden or shown based on the active auth mode. Use the `api.user.authMode` query:
+
+```tsx
+const { data: authModeData } = api.user.authMode.useQuery();
+const isCredentialsAuth = authModeData?.mode === "credentials";
+
+// Hide password reset for SSO deployments
+{isCredentialsAuth && <ResetPasswordButton />}
+```
+
+Features that differ by auth mode:
+- **Invite links** — only shown for credentials auth (SSO users are auto-provisioned)
+- **Password reset** — only shown for credentials auth (SSO passwords are managed by the IdP)
+- **Sign-up page** — only accessible for credentials auth (SSO redirects to sign-in)
 
 ### Utilities
 
