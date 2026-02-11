@@ -1,9 +1,15 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { db } from "~/server/db";
+import { isSSO } from "~/lib/auth-provider";
 import { SignUpForm } from "./sign-up-form";
 
 export default async function SignUpPage() {
+  // SSO deployments don't use sign-up — users are auto-provisioned on first SSO sign-in
+  if (isSSO()) {
+    redirect("/sign-in");
+  }
+
   // Check if any users exist
   const userCount = await db.user.count();
   const isFirstUser = userCount === 0;

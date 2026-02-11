@@ -36,9 +36,12 @@ interface ResetLinkData {
 
 export default function AdminUsersPage() {
   const { data, isLoading } = api.user.list.useQuery({ limit: 50 });
+  const { data: authModeData } = api.user.authMode.useQuery();
   const utils = api.useUtils();
   const [resetLinkData, setResetLinkData] = useState<ResetLinkData | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const isCredentialsAuth = authModeData?.mode === "credentials";
 
   const updateRoleMutation = api.user.updateRole.useMutation({
     onSuccess: () => {
@@ -129,15 +132,17 @@ export default function AdminUsersPage() {
                       <DropdownMenuContent align="end">
                         {!user.deactivated && (
                           <>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                generateResetTokenMutation.mutate({ userId: user.id })
-                              }
-                              disabled={generateResetTokenMutation.isPending}
-                            >
-                              <KeyRound className="h-4 w-4" />
-                              Reset Password
-                            </DropdownMenuItem>
+                            {isCredentialsAuth && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  generateResetTokenMutation.mutate({ userId: user.id })
+                                }
+                                disabled={generateResetTokenMutation.isPending}
+                              >
+                                <KeyRound className="h-4 w-4" />
+                                Reset Password
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={() =>
                                 updateRoleMutation.mutate({

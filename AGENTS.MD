@@ -81,6 +81,46 @@ Destructive/negative actions with red text must have proper hover/focus states t
 
 Rule: Elements with `text-destructive` in default state should use `focus:bg-destructive focus:text-destructive-foreground` (for menu items) or `hover:bg-destructive hover:text-destructive-foreground` (for buttons) in their interactive states.
 
+## Authentication
+
+Draftboard supports three mutually exclusive auth providers — **credentials** (default), **Okta SSO**, or **Google Workspace** — controlled by environment variables. Only one can be active per deployment.
+
+### Key Files
+
+| File | Purpose |
+|---|---|
+| `src/lib/auth-provider.ts` | `getAuthMode()` and `isSSO()` — detects active auth mode from env vars |
+| `src/server/auth.config.ts` | Edge-compatible provider config (used by middleware) |
+| `src/server/auth.ts` | Full provider config, SSO auto-provisioning, JWT/session callbacks |
+| `src/app/(auth)/sign-in/` | Renders credentials form or SSO button based on mode |
+
+### Auth-Aware UI Guidelines
+
+When building UI that touches auth features, check the auth mode:
+
+```tsx
+// Server components — use directly
+import { getAuthMode, isSSO } from "~/lib/auth-provider";
+if (isSSO()) { redirect("/sign-in"); }
+
+// Client components — use the tRPC endpoint
+const { data: authModeData } = api.user.authMode.useQuery();
+const isCredentialsAuth = authModeData?.mode === "credentials";
+```
+
+Features that vary by auth mode:
+- **Invite links** — credentials only (SSO users are auto-provisioned by their IdP)
+- **Password reset** — credentials only (SSO passwords are managed externally)
+- **Sign-up page** — credentials only (SSO users sign in directly, auto-provisioned on first login)
+- **Role management & deactivation** — available in ALL modes
+
+### Adding New Auth-Gated Features
+
+If you add a feature that should only exist for a specific auth mode:
+1. **Server-side**: Guard with `isSSO()` or `getAuthMode()` from `~/lib/auth-provider`
+2. **Client-side**: Query `api.user.authMode` and conditionally render
+3. **tRPC endpoints**: Check `isSSO()` and throw `TRPCError` with `code: "BAD_REQUEST"` if the feature isn't available
+
 ## Project Architecture
 
 ```
@@ -93,6 +133,7 @@ src/
 ├── server/                # Server-side code
 │   └── api/routers/       # tRPC routers
 ├── lib/                   # Utilities and hooks
+│   └── auth-provider.ts   # Auth mode detection
 └── middleware.ts          # Auth middleware
 ```
 

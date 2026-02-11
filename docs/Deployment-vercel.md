@@ -82,6 +82,148 @@ You'll need the following credentials from your storage provider:
 
 > **Note:** If you're also using a Preview/Development environment, add those URLs to `AllowedOrigins` as well (e.g. `https://your-app-git-*.vercel.app` or `http://localhost:3000`).
 
+### 3. Authentication Provider
+
+Draftboard supports exactly **one** authentication provider per deployment. Choose the option that fits your organization and follow the setup instructions below.
+
+<details>
+<summary><strong>Option A: Credentials (default)</strong></summary>
+
+This is the default — no additional setup is needed. Users will create accounts with email and password, and new users are invited via shareable invite links managed by admins.
+
+No extra environment variables are required beyond `NEXTAUTH_SECRET` and `NEXTAUTH_URL`.
+
+**How it works:**
+- The first user to sign up becomes the **Owner**.
+- Admins generate invite links from **Admin > Settings** and share them with team members.
+- Admins can reset passwords, promote/demote roles, and deactivate users from **Admin > People**.
+
+</details>
+
+<details>
+<summary><strong>Option B: Okta SSO</strong></summary>
+
+Use this if your organization uses Okta as its identity provider.
+
+#### Step 1: Create an Okta Application
+
+1. Sign in to your [Okta Admin Console](https://admin.okta.com/).
+2. Navigate to **Applications > Applications > Create App Integration**.
+3. Select **OIDC - OpenID Connect** as the sign-in method.
+4. Select **Web Application** as the application type and click **Next**.
+
+#### Step 2: Configure the Application
+
+| Setting | Value |
+|---|---|
+| **App integration name** | `Draftboard` (or any name you prefer) |
+| **Grant type** | `Authorization Code` (default) |
+| **Sign-in redirect URIs** | `https://your-app.vercel.app/api/auth/callback/okta` |
+| **Sign-out redirect URIs** | `https://your-app.vercel.app` |
+
+> Replace `your-app.vercel.app` with your actual production URL. If you use a custom domain (e.g. `draftboard.yourcompany.com`), use that instead.
+
+#### Step 3: Assign Users
+
+Under the **Assignments** tab of your new application, assign the users or groups who should have access to Draftboard.
+
+#### Step 4: Collect Your Credentials
+
+From the application's **General** tab, copy the following values:
+
+| Okta value | Environment variable |
+|---|---|
+| **Client ID** | `AUTH_OKTA_CLIENT_ID` |
+| **Client Secret** | `AUTH_OKTA_CLIENT_SECRET` |
+| **Okta domain** (e.g. `https://your-org.okta.com`) | `AUTH_OKTA_ISSUER` |
+
+> The issuer URL is your Okta domain with `https://` — for example, `https://dev-12345678.okta.com`. Do **not** include a trailing slash or path.
+
+#### Step 5: Set Environment Variables
+
+Add these to your Vercel project (or `.env` file):
+
+```
+AUTH_OKTA_CLIENT_ID=0oa1234567890abcdef
+AUTH_OKTA_CLIENT_SECRET=your-okta-client-secret
+AUTH_OKTA_ISSUER=https://your-org.okta.com
+```
+
+**How it works:**
+- The first person to sign in via Okta becomes the **Owner**.
+- All subsequent Okta users are auto-provisioned as **Members** on first sign-in.
+- No invite links are needed — access is controlled by Okta user/group assignment.
+- Admins can still promote/demote roles and deactivate users from **Admin > People**.
+
+</details>
+
+<details>
+<summary><strong>Option C: Google Workspace</strong></summary>
+
+Use this if your organization uses Google Workspace (formerly G Suite) and you want team members to sign in with their organizational Google accounts.
+
+#### Step 1: Create a Google Cloud Project
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a new project (or select an existing one).
+3. Make sure the project is associated with your Google Workspace organization.
+
+#### Step 2: Configure the OAuth Consent Screen
+
+1. Navigate to **APIs & Services > OAuth consent screen**.
+2. Select **Internal** as the user type (this restricts access to your Workspace domain).
+   - If you select **External**, you'll need to add test users during development and submit for verification before production use.
+3. Fill in the required fields:
+   - **App name**: `Draftboard`
+   - **User support email**: Your email
+   - **Developer contact email**: Your email
+4. On the **Scopes** page, add these scopes:
+   - `email`
+   - `profile`
+   - `openid`
+5. Save and continue through the remaining steps.
+
+#### Step 3: Create OAuth Credentials
+
+1. Navigate to **APIs & Services > Credentials**.
+2. Click **Create Credentials > OAuth client ID**.
+3. Select **Web application** as the application type.
+4. Fill in:
+
+| Setting | Value |
+|---|---|
+| **Name** | `Draftboard` |
+| **Authorized JavaScript origins** | `https://your-app.vercel.app` |
+| **Authorized redirect URIs** | `https://your-app.vercel.app/api/auth/callback/google` |
+
+> Replace `your-app.vercel.app` with your actual production URL. Add `http://localhost:3000` origins/redirects for local development.
+
+5. Click **Create** and copy the **Client ID** and **Client Secret**.
+
+#### Step 4: Set Environment Variables
+
+Add these to your Vercel project (or `.env` file):
+
+```
+AUTH_GOOGLE_CLIENT_ID=123456789-abcdefgh.apps.googleusercontent.com
+AUTH_GOOGLE_CLIENT_SECRET=GOCSPX-your-google-client-secret
+AUTH_GOOGLE_ALLOWED_DOMAIN=yourcompany.com
+```
+
+The `AUTH_GOOGLE_ALLOWED_DOMAIN` variable is **optional but recommended**. When set, only Google accounts from that domain can sign in. This is enforced both in the Google consent screen (via the `hd` parameter) and server-side in the sign-in callback.
+
+> If you chose **Internal** in the consent screen, the domain is already restricted by Google. The `AUTH_GOOGLE_ALLOWED_DOMAIN` variable provides an additional server-side check.
+
+**How it works:**
+- The first person to sign in via Google becomes the **Owner**.
+- All subsequent Google users (from the allowed domain) are auto-provisioned as **Members** on first sign-in.
+- No invite links are needed — access is controlled by Google Workspace membership.
+- Admins can still promote/demote roles and deactivate users from **Admin > People**.
+
+</details>
+
+> **Important:** Do not configure both Okta and Google at the same time. The app will refuse to start if both sets of environment variables are present.
+
 ---
 
 ## Vercel Setup
@@ -107,12 +249,37 @@ In your Vercel project, go to **Settings > Environment Variables** and add the f
 |---|---|
 | `DATABASE_URL` | Your PostgreSQL connection string (see Prerequisites) |
 
-#### Authentication
+#### Authentication (required)
 
 | Variable | Value |
 |---|---|
 | `NEXTAUTH_SECRET` | A random secret — generate one with `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | Your production URL, e.g. `https://your-app.vercel.app` |
+
+<details>
+<summary><strong>Auth provider variables (expand your chosen provider)</strong></summary>
+
+**Okta SSO:**
+
+| Variable | Value |
+|---|---|
+| `AUTH_OKTA_CLIENT_ID` | Your Okta OAuth client ID |
+| `AUTH_OKTA_CLIENT_SECRET` | Your Okta OAuth client secret |
+| `AUTH_OKTA_ISSUER` | Your Okta domain, e.g. `https://your-org.okta.com` |
+
+**Google Workspace:**
+
+| Variable | Value |
+|---|---|
+| `AUTH_GOOGLE_CLIENT_ID` | Your Google OAuth client ID |
+| `AUTH_GOOGLE_CLIENT_SECRET` | Your Google OAuth client secret |
+| `AUTH_GOOGLE_ALLOWED_DOMAIN` | *(optional)* e.g. `yourcompany.com` |
+
+**Credentials (default):**
+
+No additional variables needed.
+
+</details>
 
 #### Storage (Cloudflare R2 / AWS S3)
 
@@ -151,7 +318,11 @@ Trigger a deployment by pushing to your main branch, or click **Redeploy** in th
 3. Deploy the production build to Vercel's edge network
 
 ---
+
 ## Post-Deployment Checklist
+
+<details>
+<summary><strong>Credentials auth</strong></summary>
 
 - [ ] Verify the app loads at your production URL
 - [ ] Sign up and confirm you have the Owner role
@@ -160,3 +331,38 @@ Trigger a deployment by pushing to your main branch, or click **Redeploy** in th
 - [ ] Set up a [custom domain](https://vercel.com/docs/projects/domains) in **Vercel > Settings > Domains** (optional but recommended)
 - [ ] Update the `AllowedOrigins` in your R2 CORS policy to include the custom domain
 - [ ] Generate an invite link from **Admin > Settings** and share it with your team
+
+</details>
+
+<details>
+<summary><strong>Okta SSO</strong></summary>
+
+- [ ] Verify the app loads at your production URL
+- [ ] Click "Sign in with Okta" and confirm you are redirected to your Okta login
+- [ ] Sign in and confirm you have the Owner role (first user)
+- [ ] Test file/image uploads to confirm storage is connected
+- [ ] Create a test post to verify the database connection
+- [ ] Have a second team member sign in — confirm they are auto-provisioned as a Member
+- [ ] Verify you can promote them to Admin from **Admin > People**
+- [ ] Set up a [custom domain](https://vercel.com/docs/projects/domains) in **Vercel > Settings > Domains** (optional but recommended)
+- [ ] Update the `AllowedOrigins` in your R2 CORS policy to include the custom domain
+- [ ] Update the **Sign-in redirect URI** in your Okta app to use the custom domain
+
+</details>
+
+<details>
+<summary><strong>Google Workspace</strong></summary>
+
+- [ ] Verify the app loads at your production URL
+- [ ] Click "Sign in with Google" and confirm you are redirected to Google's consent screen
+- [ ] Sign in and confirm you have the Owner role (first user)
+- [ ] If `AUTH_GOOGLE_ALLOWED_DOMAIN` is set, try signing in with a personal Gmail — confirm it is rejected
+- [ ] Test file/image uploads to confirm storage is connected
+- [ ] Create a test post to verify the database connection
+- [ ] Have a second team member sign in — confirm they are auto-provisioned as a Member
+- [ ] Verify you can promote them to Admin from **Admin > People**
+- [ ] Set up a [custom domain](https://vercel.com/docs/projects/domains) in **Vercel > Settings > Domains** (optional but recommended)
+- [ ] Update the `AllowedOrigins` in your R2 CORS policy to include the custom domain
+- [ ] Update the **Authorized redirect URIs** in Google Cloud Console to use the custom domain
+
+</details>
