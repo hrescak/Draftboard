@@ -1,7 +1,5 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import Okta from "next-auth/providers/okta";
-import Google from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import { z } from "zod";
 import { db } from "~/server/db";
@@ -17,78 +15,60 @@ const credentialsSchema = z.object({
 
 /**
  * Build the full provider list with actual authorization logic.
- * For OAuth providers (Okta, Google), user provisioning is handled
- * in the signIn callback below — not in an authorize function.
+ *
+ * OAuth providers (Okta, Google) are edge-compatible and fully configured
+ * in auth.config.ts — we reuse them directly to avoid duplication.
+ * Only the credentials provider needs overriding here because its
+ * authorize() function requires Node.js-only dependencies (bcryptjs, Prisma).
  */
 function getProviders() {
-  switch (authMode) {
-    case "okta":
-      return [
-        Okta({
-          clientId: process.env.AUTH_OKTA_CLIENT_ID,
-          clientSecret: process.env.AUTH_OKTA_CLIENT_SECRET,
-          issuer: process.env.AUTH_OKTA_ISSUER,
-        }),
-      ];
-    case "google":
-      return [
-        Google({
-          clientId: process.env.AUTH_GOOGLE_CLIENT_ID,
-          clientSecret: process.env.AUTH_GOOGLE_CLIENT_SECRET,
-          authorization: {
-            params: {
-              ...(process.env.AUTH_GOOGLE_ALLOWED_DOMAIN && {
-                hd: process.env.AUTH_GOOGLE_ALLOWED_DOMAIN,
-              }),
-            },
-          },
-        }),
-      ];
-    default:
-      return [
-        Credentials({
-          name: "credentials",
-          credentials: {
-            email: { label: "Email", type: "email" },
-            password: { label: "Password", type: "password" },
-          },
-          async authorize(credentials) {
-            const parsed = credentialsSchema.safeParse(credentials);
-            if (!parsed.success) {
-              return null;
-            }
-
-            const { email, password } = parsed.data;
-
-            const user = await db.user.findUnique({
-              where: { email },
-            });
-
-            if (!user || !user.passwordHash) {
-              return null;
-            }
-
-            const isValid = await compare(password, user.passwordHash);
-            if (!isValid) {
-              return null;
-            }
-
-            // Block sign-in for deactivated users
-            if (user.deactivated) {
-              return null;
-            }
-
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.displayName,
-              image: user.avatarUrl,
-              role: user.role,
-            };
-          },
-        }),
-      ];
+  if (authMode !== "credentials") {
+    return authConfig.providers;
   }
+
+  return [
+    Credentials({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const parsed = credentialsSchema.safeParse(credentials);
+        if (!parsed.success) {
+          return null;
+        }
+
+        const { email, password } = parsed.data;
+
+        const user = await db.user.findUnique({
+          where: { email },
+        });
+
+        if (!user || !user.passwordHash) {
+          return null;
+        }
+
+        const isValid = await compare(password, user.passwordHash);
+        if (!isValid) {
+          return null;
+        }
+
+        // Block sign-in for deactivated users
+        if (user.deactivated) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.displayName,
+          image: user.avatarUrl,
+          role: user.role,
+        };
+      },
+    }),
+  ];
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
