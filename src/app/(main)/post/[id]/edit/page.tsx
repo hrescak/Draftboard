@@ -25,6 +25,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
   const { data: post, isLoading: isLoadingPost } = api.post.getById.useQuery({
     id,
   });
+  const { data: feedbackConfig } = api.site.getFeedbackConfig.useQuery();
 
   useEffect(() => {
     if (post) {
@@ -34,6 +35,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
         liveUrl: post.liveUrl || "",
         projects: post.projects.map((p) => p.project),
         hideFromHome: post.hideFromHome,
+        visualFeedbackEnabled: post.visualFeedbackEnabled,
       };
       setInitialData(data);
       setEditorData(data);
@@ -67,6 +69,8 @@ export default function EditPostPage({ params }: EditPostPageProps) {
       title: editorData.title || undefined,
       content: editorData.content,
       liveUrl: editorData.liveUrl || undefined,
+      hideFromHome: editorData.hideFromHome,
+      visualFeedbackEnabled: editorData.visualFeedbackEnabled,
       projectIds: editorData.projects.map((p) => p.id),
       attachments,
     });
@@ -108,6 +112,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
         <div className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-3xl flex-col px-4 py-8">
           <PostEditor
             initialData={initialData}
+            showVisualFeedbackSetting={!!feedbackConfig?.visualFeedbackEnabled}
             onChange={handleEditorChange}
             editorKey={id}
           />

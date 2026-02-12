@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import {
   createTRPCRouter,
@@ -13,7 +14,7 @@ export const projectRouter = createTRPCRouter({
       const project = await ctx.db.project.create({
         data: {
           name: input.name,
-          description: input.description,
+          description: input.description as Prisma.InputJsonValue | undefined,
           coverUrl: input.coverUrl,
           createdById: ctx.session.user.id,
           urls: {
@@ -159,7 +160,7 @@ export const projectRouter = createTRPCRouter({
         where: { id: input.id },
         data: {
           name: input.name,
-          description: input.description,
+          description: input.description as Prisma.InputJsonValue | undefined,
           coverUrl: input.coverUrl,
           urls: input.urls
             ? {

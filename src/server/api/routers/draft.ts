@@ -32,6 +32,8 @@ export const draftRouter = createTRPCRouter({
             title: input.title,
             content: input.content ?? undefined,
             liveUrl: input.liveUrl,
+            hideFromHome: input.hideFromHome,
+            visualFeedbackEnabled: input.visualFeedbackEnabled,
             projectIds: input.projectIds,
           },
         });
@@ -43,6 +45,8 @@ export const draftRouter = createTRPCRouter({
             title: input.title,
             content: input.content ?? undefined,
             liveUrl: input.liveUrl,
+            hideFromHome: input.hideFromHome,
+            visualFeedbackEnabled: input.visualFeedbackEnabled,
             projectIds: input.projectIds,
             authorId: ctx.session.user.id,
           },

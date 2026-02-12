@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Loader2, MessageSquarePlus } from "lucide-react";
 import { Button } from "./button";
+import { useFeedbackEntry } from "~/components/feedback/FeedbackEntryContext";
 import { api } from "~/lib/trpc/client";
 
 export interface LightboxMedia {
@@ -86,6 +87,7 @@ function SignedLightboxMedia({ url, filename, type = "image" }: { url: string; f
 export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: LightboxProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [mounted, setMounted] = useState(false);
+  const feedbackEntry = useFeedbackEntry();
 
   useEffect(() => {
     setMounted(true);
@@ -133,10 +135,15 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
   return createPortal(
     <div
       className="fixed inset-0 z-100 flex items-center justify-center bg-black/90"
-      onClick={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
     >
       {/* Close button */}
       <Button
+        type="button"
         variant="ghost"
         size="icon"
         className="absolute right-4 top-4 z-10 text-white hover:bg-white/20"
@@ -150,6 +157,7 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
       {images.length > 1 && (
         <>
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             className="absolute left-4 top-1/2 z-10 -translate-y-1/2 text-white hover:bg-white/20"
@@ -162,6 +170,7 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
             <span className="sr-only">Previous</span>
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             className="absolute right-4 top-1/2 z-10 -translate-y-1/2 text-white hover:bg-white/20"
@@ -186,15 +195,38 @@ export function Lightbox({ images, initialIndex = 0, isOpen, onClose }: Lightbox
 
       {/* Image counter */}
       {images.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
+        <div
+          className={`absolute ${
+            feedbackEntry ? "bottom-16" : "bottom-4"
+          } left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white`}
+        >
           {currentIndex + 1} / {images.length}
         </div>
       )}
 
       {/* Filename */}
-      <div className="absolute bottom-4 right-4 max-w-[200px] truncate rounded bg-black/50 px-3 py-1 text-sm text-white">
+      <div
+        className={`absolute ${
+          feedbackEntry ? "bottom-16" : "bottom-4"
+        } right-4 max-w-[200px] truncate rounded bg-black/50 px-3 py-1 text-sm text-white`}
+      >
         {currentImage.filename}
       </div>
+
+      {feedbackEntry && (
+        <Button
+          type="button"
+          className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 gap-2 bg-white/15 text-white shadow-lg backdrop-blur-sm hover:bg-white/25"
+          onClick={(event) => {
+            event.stopPropagation();
+            feedbackEntry.openFeedback({ attachmentUrl: currentImage.url });
+            onClose();
+          }}
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+          Add feedback
+        </Button>
+      )}
     </div>,
     document.body
   );
