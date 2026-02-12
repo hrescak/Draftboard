@@ -33,6 +33,16 @@ export const notificationRouter = createTRPCRouter({
               id: true,
             },
           },
+          feedbackSession: {
+            select: {
+              id: true,
+            },
+          },
+          feedbackComment: {
+            select: {
+              id: true,
+            },
+          },
         },
       });
 

@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import {
   createTRPCRouter,
   publicProcedure,
+  protectedProcedure,
   adminProcedure,
 } from "~/server/api/trpc";
 
@@ -48,6 +49,30 @@ export const siteRouter = createTRPCRouter({
   getSettings: adminProcedure.query(async ({ ctx }) => {
     const settings = await getOrCreateSettings(ctx.db);
     return settings;
+  }),
+
+  // Members: Read feedback feature config
+  getFeedbackConfig: protectedProcedure.query(async ({ ctx }) => {
+    const settings = await getOrCreateSettings(ctx.db);
+    const clampedVideoDurationSec = Math.max(
+      30,
+      settings.feedbackMaxVideoDurationSec
+    );
+    const clampedAudioDurationSec = Math.max(
+      5,
+      settings.feedbackMaxAudioDurationSec
+    );
+    const clampedVideoSizeBytes = Math.max(
+      10 * 1024 * 1024,
+      settings.feedbackMaxVideoSizeBytes
+    );
+
+    return {
+      visualFeedbackEnabled: settings.visualFeedbackEnabled,
+      feedbackMaxVideoDurationSec: clampedVideoDurationSec,
+      feedbackMaxAudioDurationSec: clampedAudioDurationSec,
+      feedbackMaxVideoSizeBytes: clampedVideoSizeBytes,
+    };
   }),
 
   // Admin: Regenerate the invite token
@@ -104,6 +129,30 @@ export const siteRouter = createTRPCRouter({
           discordWebhookUrl,
           slackWebhookUrl,
         },
+      });
+
+      return settings;
+    }),
+
+  // Admin: Update feedback feature settings
+  updateFeedbackSettings: adminProcedure
+    .input(
+      z.object({
+        visualFeedbackEnabled: z.boolean(),
+        feedbackMaxVideoDurationSec: z.number().int().min(30).max(3600),
+        feedbackMaxAudioDurationSec: z.number().int().min(5).max(300),
+        feedbackMaxVideoSizeBytes: z
+          .number()
+          .int()
+          .min(10 * 1024 * 1024)
+          .max(2147483647),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const settings = await ctx.db.siteSettings.upsert({
+        where: { id: "default" },
+        update: input,
+        create: { id: "default", ...input },
       });
 
       return settings;

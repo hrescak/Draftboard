@@ -23,7 +23,7 @@ import {
 import { Editor } from "~/components/editor/Editor";
 import { api } from "~/lib/trpc/client";
 import type { SerializedEditorState } from "lexical";
-import { cn } from "~/lib/utils";
+import { cn, pluralize } from "~/lib/utils";
 
 export interface PostEditorData {
   title: string;
@@ -31,6 +31,7 @@ export interface PostEditorData {
   liveUrl: string;
   projects: Array<{ id: string; name: string }>;
   hideFromHome: boolean;
+  visualFeedbackEnabled: boolean;
 }
 
 export interface ExtractedAttachment {
@@ -53,7 +54,9 @@ interface PostEditorProps {
     liveUrl?: string;
     projects?: Array<{ id: string; name: string }>;
     hideFromHome?: boolean;
+    visualFeedbackEnabled?: boolean;
   };
+  showVisualFeedbackSetting?: boolean;
   onChange?: (data: PostEditorData) => void;
   editorKey?: string;
   className?: string;
@@ -104,6 +107,7 @@ export function extractAttachments(
 
 export function PostEditor({
   initialData,
+  showVisualFeedbackSetting = false,
   onChange,
   editorKey,
   className,
@@ -119,6 +123,9 @@ export function PostEditor({
   const [projectSearch, setProjectSearch] = useState("");
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [hideFromHome, setHideFromHome] = useState(initialData?.hideFromHome || false);
+  const [visualFeedbackEnabled, setVisualFeedbackEnabled] = useState(
+    initialData?.visualFeedbackEnabled || false
+  );
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const isInitialMount = useRef(true);
@@ -140,7 +147,7 @@ export function PostEditor({
   const projectButtonText = useMemo(() => {
     if (selectedProjects.length === 0) return "Add to project";
     if (selectedProjects.length === 1) return selectedProjects[0].name;
-    return `In ${selectedProjects.length} projects`;
+    return `In ${selectedProjects.length} ${pluralize(selectedProjects.length, "project")}`;
   }, [selectedProjects]);
 
   // Update parent when data changes
@@ -157,8 +164,9 @@ export function PostEditor({
       liveUrl,
       projects: selectedProjects,
       hideFromHome,
+      visualFeedbackEnabled,
     });
-  }, [title, content, liveUrl, selectedProjects, hideFromHome, onChange]);
+  }, [title, content, liveUrl, selectedProjects, hideFromHome, visualFeedbackEnabled, onChange]);
 
   // Auto-resize title textarea on mount if it has content
   useEffect(() => {
@@ -316,6 +324,22 @@ export function PostEditor({
               onCheckedChange={setHideFromHome}
             />
           </div>
+
+          {showVisualFeedbackSetting && (
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="visualFeedbackEnabled">Enable Visual Feedback</Label>
+                <p className="text-xs text-muted-foreground">
+                  Enable timeline-based video and region feedback on this post
+                </p>
+              </div>
+              <Switch
+                id="visualFeedbackEnabled"
+                checked={visualFeedbackEnabled}
+                onCheckedChange={setVisualFeedbackEnabled}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

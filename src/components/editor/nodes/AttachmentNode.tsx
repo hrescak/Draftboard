@@ -13,8 +13,17 @@ import {
 } from "lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { Suspense, useEffect, useState, useId } from "react";
-import { FileIcon, Download, Play, ExternalLink, Loader2, X } from "lucide-react";
+import {
+  FileIcon,
+  Download,
+  Play,
+  ExternalLink,
+  Loader2,
+  MessageSquarePlus,
+  X,
+} from "lucide-react";
 import { api } from "~/lib/trpc/client";
+import { useFeedbackEntry } from "~/components/feedback/FeedbackEntryContext";
 import { Lightbox } from "~/components/ui/lightbox";
 import { useMediaLightbox } from "~/components/ui/media-lightbox-context";
 
@@ -87,6 +96,11 @@ function AttachmentComponent({
 
   // Try to use the shared media lightbox context (available on post detail pages)
   const mediaLightbox = useMediaLightbox();
+  const feedbackEntry = useFeedbackEntry();
+  const canOpenFeedback =
+    !isEditable &&
+    !!feedbackEntry &&
+    (attachmentType === "IMAGE" || attachmentType === "VIDEO");
 
   // Listen for editability changes
   useEffect(() => {
@@ -174,6 +188,12 @@ function AttachmentComponent({
     }
   };
 
+  const handleOpenFeedback = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    feedbackEntry?.openFeedback({ attachmentUrl: url });
+  };
+
   // Delete button component for reuse
   const DeleteButton = () => (
     <button
@@ -185,6 +205,18 @@ function AttachmentComponent({
       <X className="h-4 w-4" />
     </button>
   );
+
+  const FeedbackButton = () =>
+    canOpenFeedback ? (
+      <button
+        type="button"
+        onClick={handleOpenFeedback}
+        className="absolute bottom-2 right-2 z-10 flex items-center gap-1 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity hover:bg-black/80 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white"
+      >
+        <MessageSquarePlus className="h-3.5 w-3.5" />
+        Feedback
+      </button>
+    ) : null;
 
   if (attachmentType === "IMAGE") {
     if (isLoading) {
@@ -199,6 +231,7 @@ function AttachmentComponent({
       <>
         <div className="group relative my-4 inline-block">
           {isEditable && <DeleteButton />}
+          <FeedbackButton />
           <button
             type="button"
             onClick={handleMediaClick}
@@ -248,6 +281,7 @@ function AttachmentComponent({
       <>
         <div className="group relative my-4 inline-block">
           {isEditable && <DeleteButton />}
+          <FeedbackButton />
           <button
             type="button"
             onClick={handleMediaClick}

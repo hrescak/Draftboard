@@ -24,9 +24,39 @@ function getNotificationText(type: string, actorName: string, postTitle?: string
       return `${actorName} reacted to your comment`;
     case "MENTION":
       return `${actorName} mentioned you${postTitle ? ` in "${postTitle}"` : ""}`;
+    case "FEEDBACK_SESSION":
+      return `${actorName} added a feedback session${postTitle ? ` on "${postTitle}"` : ""}`;
+    case "FEEDBACK_COMMENT":
+      return `${actorName} left visual feedback${postTitle ? ` on "${postTitle}"` : ""}`;
+    case "FEEDBACK_REPLY":
+      return `${actorName} replied to visual feedback${postTitle ? ` on "${postTitle}"` : ""}`;
+    case "FEEDBACK_RESOLVED":
+      return `${actorName} resolved your feedback comment${postTitle ? ` on "${postTitle}"` : ""}`;
     default:
       return `${actorName} interacted with your content`;
   }
+}
+
+function getNotificationHref(notification: {
+  postId: string | null;
+  feedbackSession: { id: string } | null;
+  feedbackComment: { id: string } | null;
+}) {
+  if (!notification.postId) return "#";
+
+  const params = new URLSearchParams();
+  if (notification.feedbackSession || notification.feedbackComment) {
+    params.set("tab", "feedback");
+  }
+  if (notification.feedbackSession?.id) {
+    params.set("session", notification.feedbackSession.id);
+  }
+  if (notification.feedbackComment?.id) {
+    params.set("comment", notification.feedbackComment.id);
+  }
+
+  const query = params.toString();
+  return query ? `/post/${notification.postId}?${query}` : `/post/${notification.postId}`;
 }
 
 export default function NotificationsPage() {
@@ -139,7 +169,7 @@ export default function NotificationsPage() {
               {notifications.map((notification) => (
                 <Link
                   key={notification.id}
-                  href={notification.postId ? `/post/${notification.postId}` : "#"}
+                  href={getNotificationHref(notification)}
                   onClick={() => {
                     if (!notification.read) {
                       markAsReadMutation.mutate({ id: notification.id });

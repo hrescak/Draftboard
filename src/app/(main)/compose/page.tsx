@@ -25,6 +25,7 @@ export default function ComposePage() {
     liveUrl: "",
     projects: [],
     hideFromHome: false,
+    visualFeedbackEnabled: false,
   });
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(draftId);
   const [isSaving, setIsSaving] = useState(false);
@@ -44,6 +45,7 @@ export default function ComposePage() {
       { id: draftId! },
       { enabled: !!draftId && !isLoadedRef.current }
     );
+  const { data: feedbackConfig } = api.site.getFeedbackConfig.useQuery();
 
   // Initialize form with draft data
   useEffect(() => {
@@ -53,7 +55,8 @@ export default function ComposePage() {
         content: existingDraft.content as SerializedEditorState | null,
         liveUrl: existingDraft.liveUrl || "",
         projects: [], // Drafts don't store projects currently
-        hideFromHome: false,
+        hideFromHome: existingDraft.hideFromHome ?? false,
+        visualFeedbackEnabled: existingDraft.visualFeedbackEnabled ?? false,
       });
       setCurrentDraftId(existingDraft.id);
       isLoadedRef.current = true;
@@ -131,6 +134,8 @@ export default function ComposePage() {
         title: editorData.title || null,
         content: editorData.content || null,
         liveUrl: editorData.liveUrl || null,
+        hideFromHome: editorData.hideFromHome,
+        visualFeedbackEnabled: editorData.visualFeedbackEnabled,
         projectIds: editorData.projects.map((p) => p.id),
       });
     }, AUTOSAVE_DELAY);
@@ -162,6 +167,8 @@ export default function ComposePage() {
       content: editorData.content,
       liveUrl: editorData.liveUrl || undefined,
       hideFromHome: editorData.hideFromHome,
+      visualFeedbackEnabled:
+        feedbackConfig?.visualFeedbackEnabled && editorData.visualFeedbackEnabled,
       projectIds: editorData.projects.map((p) => p.id),
       attachments,
     });
@@ -253,9 +260,13 @@ export default function ComposePage() {
                       existingDraft.content as SerializedEditorState | null,
                     liveUrl: existingDraft.liveUrl || "",
                     projects: [],
+                    hideFromHome: existingDraft.hideFromHome ?? false,
+                    visualFeedbackEnabled:
+                      existingDraft.visualFeedbackEnabled ?? false,
                   }
                 : undefined
             }
+            showVisualFeedbackSetting={!!feedbackConfig?.visualFeedbackEnabled}
             onChange={handleEditorChange}
             editorKey={editorKeyRef.current}
           />
