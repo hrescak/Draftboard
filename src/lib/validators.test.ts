@@ -9,7 +9,15 @@ import {
   createProjectSchema,
   paginationSchema,
   presignedUrlSchema,
+  startMultipartUploadSchema,
+  multipartPartUrlSchema,
+  multipartCompleteSchema,
   createEmojiSchema,
+  saveDraftSchema,
+  createFeedbackSessionSchema,
+  appendFeedbackAnnotationsSchema,
+  createFeedbackCommentSchema,
+  setFeedbackCommentStatusSchema,
 } from "./validators";
 
 describe("signUpSchema", () => {
@@ -257,6 +265,126 @@ describe("presignedUrlSchema", () => {
       size: 150 * 1024 * 1024, // 150MB
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("multipart upload schemas", () => {
+  it("should validate start multipart upload request", () => {
+    const result = startMultipartUploadSchema.safeParse({
+      filename: "walkthrough.webm",
+      contentType: "video/webm",
+      size: 50 * 1024 * 1024,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject multipart upload request over PostgreSQL int max bytes", () => {
+    const result = startMultipartUploadSchema.safeParse({
+      filename: "walkthrough.webm",
+      contentType: "video/webm",
+      size: 2_147_483_648,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should validate part URL request", () => {
+    const result = multipartPartUrlSchema.safeParse({
+      key: "uploads/user/video.webm",
+      uploadId: "upload-123",
+      partNumber: 1,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should validate complete request with parts", () => {
+    const result = multipartCompleteSchema.safeParse({
+      key: "uploads/user/video.webm",
+      uploadId: "upload-123",
+      parts: [{ partNumber: 1, etag: '"etag-1"' }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should validate complete request without explicit parts", () => {
+    const result = multipartCompleteSchema.safeParse({
+      key: "uploads/user/video.webm",
+      uploadId: "upload-123",
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("saveDraftSchema", () => {
+  it("should validate draft with feedback settings", () => {
+    const result = saveDraftSchema.safeParse({
+      title: "Draft",
+      content: { root: {} },
+      hideFromHome: true,
+      visualFeedbackEnabled: true,
+      projectIds: [],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("feedback schemas", () => {
+  it("should validate creating video feedback session", () => {
+    const result = createFeedbackSessionSchema.safeParse({
+      postId: "post_1",
+      type: "VIDEO",
+      recording: {
+        videoUrl: "https://example.com/video.webm",
+        videoMimeType: "video/webm",
+        videoSize: 1024,
+        durationMs: 10_000,
+        hasCamera: true,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should validate appending feedback annotations", () => {
+    const result = appendFeedbackAnnotationsSchema.safeParse({
+      sessionId: "session_1",
+      events: [
+        {
+          tool: "PEN",
+          tStartMs: 100,
+          tEndMs: 300,
+          order: 0,
+          payload: { points: [[0.1, 0.1], [0.5, 0.5]] },
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should validate creating feedback comment with region", () => {
+    const result = createFeedbackCommentSchema.safeParse({
+      postId: "post_1",
+      frameId: "frame_1",
+      region: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
+      body: { root: {} },
+      timestampMs: 500,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject invalid region coordinates", () => {
+    const result = createFeedbackCommentSchema.safeParse({
+      postId: "post_1",
+      frameId: "frame_1",
+      region: { x: -1, y: 0.2, width: 0.3, height: 0.4 },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should validate feedback comment status update", () => {
+    const result = setFeedbackCommentStatusSchema.safeParse({
+      commentId: "comment_1",
+      status: "RESOLVED",
+    });
+    expect(result.success).toBe(true);
   });
 });
 

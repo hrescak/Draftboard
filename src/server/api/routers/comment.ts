@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import {
   createTRPCRouter,
@@ -7,6 +8,21 @@ import {
 } from "~/server/api/trpc";
 import { createCommentSchema, updateCommentSchema } from "~/lib/validators";
 import { extractUserMentions } from "~/lib/utils";
+
+function extractFeedbackCommentIdFromCoordinates(coordinates: unknown): string | null {
+  if (!coordinates || typeof coordinates !== "object") {
+    return null;
+  }
+
+  const value = coordinates as Record<string, unknown>;
+  if (value.source !== "VISUAL_FEEDBACK") {
+    return null;
+  }
+
+  return typeof value.feedbackCommentId === "string"
+    ? value.feedbackCommentId
+    : null;
+}
 
 export const commentRouter = createTRPCRouter({
   create: activeUserProcedure
@@ -44,7 +60,7 @@ export const commentRouter = createTRPCRouter({
 
       const comment = await ctx.db.comment.create({
         data: {
-          content: input.content,
+          content: input.content as Prisma.InputJsonValue,
           postId: input.postId,
           authorId: ctx.session.user.id,
           parentId: input.parentId,
@@ -193,7 +209,86 @@ export const commentRouter = createTRPCRouter({
         },
       });
 
-      return comments;
+      const feedbackCommentIds = new Set<string>();
+      for (const comment of comments) {
+        const topLevelFeedbackCommentId = extractFeedbackCommentIdFromCoordinates(
+          comment.coordinates
+        );
+        if (topLevelFeedbackCommentId) {
+          feedbackCommentIds.add(topLevelFeedbackCommentId);
+        }
+
+        for (const reply of comment.replies) {
+          const replyFeedbackCommentId = extractFeedbackCommentIdFromCoordinates(
+            reply.coordinates
+          );
+          if (replyFeedbackCommentId) {
+            feedbackCommentIds.add(replyFeedbackCommentId);
+          }
+        }
+      }
+
+      const feedbackAudioByCommentId = new Map<
+        string,
+        {
+          url: string;
+          mimeType: string | null;
+          durationSec: number | null;
+        }
+      >();
+
+      if (feedbackCommentIds.size > 0) {
+        const feedbackComments = await ctx.db.feedbackComment.findMany({
+          where: {
+            id: {
+              in: Array.from(feedbackCommentIds),
+            },
+          },
+          select: {
+            id: true,
+            audioUrl: true,
+            audioMimeType: true,
+            audioDurationSec: true,
+          },
+        });
+
+        for (const feedbackComment of feedbackComments) {
+          if (!feedbackComment.audioUrl) {
+            continue;
+          }
+
+          feedbackAudioByCommentId.set(feedbackComment.id, {
+            url: feedbackComment.audioUrl,
+            mimeType: feedbackComment.audioMimeType,
+            durationSec: feedbackComment.audioDurationSec,
+          });
+        }
+      }
+
+      return comments.map((comment) => {
+        const topLevelFeedbackCommentId = extractFeedbackCommentIdFromCoordinates(
+          comment.coordinates
+        );
+
+        return {
+          ...comment,
+          feedbackAudio: topLevelFeedbackCommentId
+            ? feedbackAudioByCommentId.get(topLevelFeedbackCommentId) ?? null
+            : null,
+          replies: comment.replies.map((reply) => {
+            const replyFeedbackCommentId = extractFeedbackCommentIdFromCoordinates(
+              reply.coordinates
+            );
+
+            return {
+              ...reply,
+              feedbackAudio: replyFeedbackCommentId
+                ? feedbackAudioByCommentId.get(replyFeedbackCommentId) ?? null
+                : null,
+            };
+          }),
+        };
+      });
     }),
 
   byAttachment: protectedProcedure
@@ -242,7 +337,7 @@ export const commentRouter = createTRPCRouter({
 
       const comment = await ctx.db.comment.update({
         where: { id: input.id },
-        data: { content: input.content },
+        data: { content: input.content as Prisma.InputJsonValue },
         include: {
           author: {
             select: {

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Switch } from "~/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -132,6 +133,8 @@ export default function AdminSettingsPage() {
           <CustomEmojiSection />
         </CardContent>
       </Card>
+
+      <FeedbackFeatureSettings />
 
       <IntegrationsSettings />
     </div>
@@ -301,6 +304,141 @@ function CustomEmojiSection() {
         </Button>
       )}
     </div>
+  );
+}
+
+function FeedbackFeatureSettings() {
+  const { data: settings, isLoading } = api.site.getSettings.useQuery();
+  const utils = api.useUtils();
+
+  const [enabled, setEnabled] = useState(false);
+  const [maxVideoDurationSec, setMaxVideoDurationSec] = useState(300);
+  const [maxAudioDurationSec, setMaxAudioDurationSec] = useState(30);
+  const [maxVideoSizeMb, setMaxVideoSizeMb] = useState(1024);
+
+  useEffect(() => {
+    if (!settings) return;
+    setEnabled(settings.visualFeedbackEnabled);
+    setMaxVideoDurationSec(Math.max(30, settings.feedbackMaxVideoDurationSec));
+    setMaxAudioDurationSec(Math.max(5, settings.feedbackMaxAudioDurationSec));
+    setMaxVideoSizeMb(
+      Math.max(10, Math.floor(settings.feedbackMaxVideoSizeBytes / (1024 * 1024)))
+    );
+  }, [settings]);
+
+  const updateMutation = api.site.updateFeedbackSettings.useMutation({
+    onSuccess: async () => {
+      await utils.site.getSettings.invalidate();
+      await utils.site.getFeedbackConfig.invalidate();
+    },
+  });
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const normalizedVideoDurationSec = Math.min(
+      3600,
+      Math.max(30, Math.floor(maxVideoDurationSec || 300))
+    );
+    const normalizedAudioDurationSec = Math.min(
+      300,
+      Math.max(5, Math.floor(maxAudioDurationSec || 30))
+    );
+    const normalizedVideoSizeMb = Math.min(
+      2047,
+      Math.max(10, Math.floor(maxVideoSizeMb || 1024))
+    );
+
+    updateMutation.mutate({
+      visualFeedbackEnabled: enabled,
+      feedbackMaxVideoDurationSec: normalizedVideoDurationSec,
+      feedbackMaxAudioDurationSec: normalizedAudioDurationSec,
+      feedbackMaxVideoSizeBytes: normalizedVideoSizeMb * 1024 * 1024,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <div className="flex justify-center">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Visual Feedback</CardTitle>
+        <CardDescription>
+          Configure the global rollout and recording limits for visual feedback.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div>
+              <p className="text-sm font-medium">Enable Visual Feedback</p>
+              <p className="text-xs text-muted-foreground">
+                Authors can opt in per post when this is enabled.
+              </p>
+            </div>
+            <Switch
+              checked={enabled}
+              onCheckedChange={setEnabled}
+              aria-label="Enable visual feedback feature"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="max-video-duration">Max video duration (seconds)</Label>
+              <Input
+                id="max-video-duration"
+                type="number"
+                min={30}
+                max={3600}
+                value={maxVideoDurationSec}
+                onChange={(event) => setMaxVideoDurationSec(Number(event.target.value || 300))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="max-audio-duration">Max audio duration (seconds)</Label>
+              <Input
+                id="max-audio-duration"
+                type="number"
+                min={5}
+                max={300}
+                value={maxAudioDurationSec}
+                onChange={(event) => setMaxAudioDurationSec(Number(event.target.value || 30))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="max-video-size">Max video size (MB)</Label>
+              <Input
+                id="max-video-size"
+                type="number"
+                min={10}
+                max={2047}
+                value={maxVideoSizeMb}
+                onChange={(event) => setMaxVideoSizeMb(Number(event.target.value || 1024))}
+              />
+            </div>
+          </div>
+
+          <Button type="submit" disabled={updateMutation.isPending}>
+            {updateMutation.isPending && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Save Visual Feedback Settings
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -9,6 +9,7 @@ import { uploadRouter } from "~/server/api/routers/upload";
 import { siteRouter } from "~/server/api/routers/site";
 import { draftRouter } from "~/server/api/routers/draft";
 import { searchRouter } from "~/server/api/routers/search";
+import { feedbackRouter } from "~/server/api/routers/feedback";
 
 export const appRouter = createTRPCRouter({
   post: postRouter,
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
   site: siteRouter,
   draft: draftRouter,
   search: searchRouter,
+  feedback: feedbackRouter,
 });
 
 export type AppRouter = typeof appRouter;

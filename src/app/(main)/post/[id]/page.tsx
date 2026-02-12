@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { api } from "~/lib/trpc/server";
 import { PostDetail } from "~/components/post/PostDetail";
-import { CommentSection } from "~/components/comments/CommentSection";
+import { PostDiscussionFeedbackTabs } from "~/components/post/PostDiscussionFeedbackTabs";
 import { Skeleton } from "~/components/ui/skeleton";
 import { ScrollToHash } from "~/components/utils/ScrollToHash";
 
@@ -34,11 +34,13 @@ export default async function PostPage({ params }: PostPageProps) {
         <PostDetail post={post} />
       </Suspense>
 
-      <div id="comments" className="scroll-mt-20">
-        <Suspense fallback={<Skeleton className="h-40" />}>
-          <CommentSection postId={id} />
-        </Suspense>
-      </div>
+      <Suspense fallback={<Skeleton className="h-40" />}>
+        <PostDiscussionFeedbackTabs
+          postId={id}
+          postAuthorId={post.author.id}
+          visualFeedbackEnabled={post.visualFeedbackEnabled}
+        />
+      </Suspense>
     </div>
   );
 }

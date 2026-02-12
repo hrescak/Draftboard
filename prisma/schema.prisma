@@ -27,6 +27,27 @@ enum NotificationType {
   REACTION_POST
   REACTION_COMMENT
   MENTION
+  FEEDBACK_SESSION
+  FEEDBACK_COMMENT
+  FEEDBACK_REPLY
+  FEEDBACK_RESOLVED
+}
+
+enum FeedbackSessionType {
+  VIDEO
+  TEXT_ONLY
+}
+
+enum FeedbackAnnotationTool {
+  PEN
+  ARROW
+  HIGHLIGHT
+  FRAME_CHANGE
+}
+
+enum FeedbackCommentStatus {
+  OPEN
+  RESOLVED
 }
 
 model User {
@@ -49,17 +70,22 @@ model User {
   customEmoji   CustomEmoji[]
   drafts        Draft[]
   passwordResetTokens PasswordResetToken[]
+  feedbackArtifactsCreated FeedbackArtifact[] @relation("FeedbackArtifactCreator")
+  feedbackSessions FeedbackSession[] @relation("FeedbackSessionAuthor")
+  feedbackComments FeedbackComment[] @relation("FeedbackCommentAuthor")
+  resolvedFeedbackComments FeedbackComment[] @relation("FeedbackCommentResolver")
 }
 
 model Post {
-  id           String       @id @default(cuid())
-  title        String?
-  content      Json
-  liveUrl      String?
-  hideFromHome Boolean      @default(false)
-  authorId     String
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id                    String    @id @default(cuid())
+  title                 String?
+  content               Json
+  liveUrl               String?
+  hideFromHome          Boolean   @default(false)
+  visualFeedbackEnabled Boolean   @default(false)
+  authorId              String
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   author      User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
   attachments Attachment[]
@@ -67,6 +93,7 @@ model Post {
   reactions   Reaction[]
   projects    PostProject[]
   notifications Notification[]
+  feedbackArtifact FeedbackArtifact?
 
   @@index([authorId])
   @@index([createdAt])
@@ -89,6 +116,7 @@ model Attachment {
 
   post         Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
   comments     Comment[]
+  feedbackFrames FeedbackFrame[]
 
   @@index([postId])
 }
@@ -197,43 +225,55 @@ model CustomEmoji {
 }
 
 model Notification {
-  id        String           @id @default(cuid())
-  type      NotificationType
-  userId    String
-  actorId   String
-  postId    String?
-  commentId String?
-  read      Boolean          @default(false)
-  createdAt DateTime         @default(now())
+  id                String           @id @default(cuid())
+  type              NotificationType
+  userId            String
+  actorId           String
+  postId            String?
+  commentId         String?
+  feedbackSessionId String?
+  feedbackCommentId String?
+  read              Boolean          @default(false)
+  createdAt         DateTime         @default(now())
 
-  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  actor     User             @relation("ActorNotifications", fields: [actorId], references: [id], onDelete: Cascade)
-  post      Post?            @relation(fields: [postId], references: [id], onDelete: Cascade)
-  comment   Comment?         @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user             User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor            User             @relation("ActorNotifications", fields: [actorId], references: [id], onDelete: Cascade)
+  post             Post?            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment          Comment?         @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  feedbackSession  FeedbackSession? @relation(fields: [feedbackSessionId], references: [id], onDelete: Cascade)
+  feedbackComment  FeedbackComment? @relation(fields: [feedbackCommentId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
+  @@index([feedbackSessionId])
+  @@index([feedbackCommentId])
 }
 
 model SiteSettings {
-  id                 String   @id @default("default")
-  inviteToken        String   @unique @default(cuid())
-  siteName           String   @default("Draftboard")
-  discordWebhookUrl  String?
-  slackWebhookUrl    String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                       String   @id @default("default")
+  inviteToken              String   @unique @default(cuid())
+  siteName                 String   @default("Draftboard")
+  discordWebhookUrl        String?
+  slackWebhookUrl          String?
+  visualFeedbackEnabled    Boolean  @default(false)
+  feedbackMaxVideoDurationSec Int   @default(300)
+  feedbackMaxAudioDurationSec Int   @default(30)
+  feedbackMaxVideoSizeBytes Int     @default(1073741824)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 }
 
 model Draft {
-  id          String   @id @default(cuid())
-  title       String?
-  content     Json?
-  liveUrl     String?
-  authorId    String
-  projectIds  String[] @default([])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  title                 String?
+  content               Json?
+  liveUrl               String?
+  hideFromHome          Boolean  @default(false)
+  visualFeedbackEnabled Boolean  @default(false)
+  authorId              String
+  projectIds            String[] @default([])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
@@ -251,4 +291,126 @@ model PasswordResetToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model FeedbackArtifact {
+  id            String   @id @default(cuid())
+  postId         String   @unique
+  createdById    String
+  frameSignature String
+  viewCount      Int      @default(0)
+  lastViewedAt   DateTime?
+  totalWatchMs   Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  post      Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdBy User              @relation("FeedbackArtifactCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  frames    FeedbackFrame[]
+  sessions  FeedbackSession[]
+  comments  FeedbackComment[]
+
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model FeedbackFrame {
+  id           String   @id @default(cuid())
+  artifactId   String
+  attachmentId String?
+  url          String
+  thumbnailUrl String?
+  width        Int?
+  height       Int?
+  order        Int
+  createdAt    DateTime @default(now())
+
+  artifact    FeedbackArtifact    @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  attachment  Attachment?         @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  comments    FeedbackComment[]
+  annotations FeedbackAnnotation[]
+
+  @@index([artifactId, order])
+  @@index([attachmentId])
+}
+
+model FeedbackSession {
+  id            String              @id @default(cuid())
+  artifactId    String
+  authorId      String
+  type          FeedbackSessionType
+  videoUrl      String?
+  videoMimeType String?
+  videoSize     Int?
+  durationMs    Int?
+  hasCamera     Boolean             @default(false)
+  viewCount     Int                 @default(0)
+  lastViewedAt  DateTime?
+  totalWatchMs  Int                 @default(0)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  artifact      FeedbackArtifact     @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  author        User                 @relation("FeedbackSessionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  annotations   FeedbackAnnotation[]
+  comments      FeedbackComment[]
+  notifications Notification[]
+
+  @@index([artifactId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model FeedbackAnnotation {
+  id        String                 @id @default(cuid())
+  sessionId String
+  frameId   String?
+  tool      FeedbackAnnotationTool
+  tStartMs  Int
+  tEndMs    Int?
+  order     Int
+  payload   Json
+  createdAt DateTime               @default(now())
+
+  session   FeedbackSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  frame     FeedbackFrame?  @relation(fields: [frameId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, order])
+  @@index([sessionId, tStartMs])
+  @@index([frameId])
+}
+
+model FeedbackComment {
+  id               String                @id @default(cuid())
+  artifactId       String
+  frameId          String
+  sessionId        String?
+  parentId         String?
+  authorId         String
+  body             Json?
+  audioUrl         String?
+  audioMimeType    String?
+  audioDurationSec Int?
+  region           Json
+  timestampMs      Int?
+  status           FeedbackCommentStatus @default(OPEN)
+  resolvedById     String?
+  resolvedAt       DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  artifact      FeedbackArtifact   @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  frame         FeedbackFrame      @relation(fields: [frameId], references: [id], onDelete: Cascade)
+  session       FeedbackSession?   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  parent        FeedbackComment?   @relation("FeedbackCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       FeedbackComment[]  @relation("FeedbackCommentReplies")
+  author        User               @relation("FeedbackCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  resolvedBy    User?              @relation("FeedbackCommentResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  notifications Notification[]
+
+  @@index([artifactId, createdAt])
+  @@index([frameId])
+  @@index([sessionId])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([resolvedById])
 }

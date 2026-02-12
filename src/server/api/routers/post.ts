@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import {
   createTRPCRouter,
@@ -9,16 +10,142 @@ import { createPostSchema, updatePostSchema, paginationSchema } from "~/lib/vali
 import { sendPostNotifications } from "~/lib/webhooks";
 import { extractUserMentions } from "~/lib/utils";
 
+interface FeedbackFrameInput {
+  attachmentId?: string;
+  type: string;
+  url: string;
+  thumbnailUrl?: string | null;
+  width?: number | null;
+  height?: number | null;
+  order: number;
+}
+
+function extractImageFrames(attachments: FeedbackFrameInput[]) {
+  return attachments
+    .filter((attachment) => attachment.type === "IMAGE")
+    .sort((a, b) => a.order - b.order)
+    .map((attachment) => ({
+      attachmentId: attachment.attachmentId,
+      url: attachment.url,
+      thumbnailUrl: attachment.thumbnailUrl ?? undefined,
+      width: attachment.width ?? undefined,
+      height: attachment.height ?? undefined,
+      order: attachment.order,
+    }));
+}
+
+function getImageFrameSignature(attachments: FeedbackFrameInput[]) {
+  const imageFrames = extractImageFrames(attachments).map((frame) => ({
+    url: frame.url,
+    width: frame.width ?? null,
+    height: frame.height ?? null,
+    order: frame.order,
+  }));
+
+  return JSON.stringify(imageFrames);
+}
+
+async function syncFeedbackArtifact(params: {
+  db: typeof import("~/server/db").db;
+  postId: string;
+  authorId: string;
+  attachments: FeedbackFrameInput[];
+}) {
+  const { db, postId, authorId, attachments } = params;
+  const imageFrames = extractImageFrames(attachments);
+  if (imageFrames.length === 0) {
+    return;
+  }
+
+  const signature = getImageFrameSignature(attachments);
+  const existingArtifact = await db.feedbackArtifact.findUnique({
+    where: { postId },
+    select: {
+      id: true,
+      frameSignature: true,
+      _count: {
+        select: {
+          sessions: true,
+        },
+      },
+    },
+  });
+
+  if (existingArtifact && existingArtifact._count.sessions > 0) {
+    if (existingArtifact.frameSignature !== signature) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "Cannot change visual feedback frames after feedback sessions exist",
+      });
+    }
+    return;
+  }
+
+  if (existingArtifact) {
+    await db.feedbackFrame.deleteMany({
+      where: { artifactId: existingArtifact.id },
+    });
+    await db.feedbackArtifact.update({
+      where: { id: existingArtifact.id },
+      data: {
+        frameSignature: signature,
+        frames: {
+          create: imageFrames,
+        },
+      },
+    });
+    return;
+  }
+
+  await db.feedbackArtifact.create({
+    data: {
+      postId,
+      createdById: authorId,
+      frameSignature: signature,
+      frames: {
+        create: imageFrames,
+      },
+    },
+  });
+}
+
 export const postRouter = createTRPCRouter({
   create: activeUserProcedure
     .input(createPostSchema)
     .mutation(async ({ ctx, input }) => {
+      if (input.visualFeedbackEnabled) {
+        const settings = await ctx.db.siteSettings.findUnique({
+          where: { id: "default" },
+          select: { visualFeedbackEnabled: true },
+        });
+        if (!settings?.visualFeedbackEnabled) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Visual feedback is disabled by your workspace admin",
+          });
+        }
+
+        const hasImageFrame = input.attachments.some(
+          (attachment) => attachment.type === "IMAGE"
+        );
+        if (!hasImageFrame) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Visual feedback requires at least one image attachment",
+          });
+        }
+      }
+
       const post = await ctx.db.post.create({
         data: {
           title: input.title,
-          content: input.content,
+          content: input.content as Prisma.InputJsonValue,
           liveUrl: input.liveUrl,
           hideFromHome: input.hideFromHome,
+          visualFeedbackEnabled: input.visualFeedbackEnabled,
           authorId: ctx.session.user.id,
           attachments: {
             create: input.attachments.map((att) => ({
@@ -30,7 +157,11 @@ export const postRouter = createTRPCRouter({
               width: att.width,
               height: att.height,
               thumbnailUrl: att.thumbnailUrl,
-              metadata: att.metadata,
+              metadata:
+                att.metadata as
+                  | Prisma.InputJsonValue
+                  | Prisma.NullableJsonNullValueInput
+                  | undefined,
               order: att.order,
             })),
           },
@@ -69,6 +200,23 @@ export const postRouter = createTRPCRouter({
           },
         },
       });
+
+      if (post.visualFeedbackEnabled) {
+        await syncFeedbackArtifact({
+          db: ctx.db,
+          postId: post.id,
+          authorId: ctx.session.user.id,
+          attachments: post.attachments.map((attachment) => ({
+            attachmentId: attachment.id,
+            type: attachment.type,
+            url: attachment.url,
+            thumbnailUrl: attachment.thumbnailUrl,
+            width: attachment.width,
+            height: attachment.height,
+            order: attachment.order,
+          })),
+        });
+      }
 
       // Create mention notifications
       const mentions = extractUserMentions(input.content);
@@ -356,7 +504,33 @@ export const postRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const existingPost = await ctx.db.post.findUnique({
         where: { id: input.id },
-        select: { authorId: true },
+        select: {
+          authorId: true,
+          visualFeedbackEnabled: true,
+          attachments: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              type: true,
+              url: true,
+              thumbnailUrl: true,
+              width: true,
+              height: true,
+              order: true,
+            },
+          },
+          feedbackArtifact: {
+            select: {
+              id: true,
+              frameSignature: true,
+              _count: {
+                select: {
+                  sessions: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       if (!existingPost) {
@@ -365,6 +539,66 @@ export const postRouter = createTRPCRouter({
 
       if (existingPost.authorId !== ctx.session.user.id) {
         throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      const nextVisualFeedbackEnabled =
+        input.visualFeedbackEnabled ?? existingPost.visualFeedbackEnabled;
+      const nextAttachments: FeedbackFrameInput[] = (
+        input.attachments ??
+        existingPost.attachments.map((attachment) => ({
+          type: attachment.type,
+          url: attachment.url,
+          thumbnailUrl: attachment.thumbnailUrl,
+          width: attachment.width,
+          height: attachment.height,
+          order: attachment.order,
+        }))
+      ).map((attachment) => ({
+        type: attachment.type,
+        url: attachment.url,
+        thumbnailUrl: attachment.thumbnailUrl,
+        width: attachment.width,
+        height: attachment.height,
+        order: attachment.order,
+      }));
+
+      const hasImageFrame = nextAttachments.some(
+        (attachment) => attachment.type === "IMAGE"
+      );
+
+      if (nextVisualFeedbackEnabled && !existingPost.visualFeedbackEnabled) {
+        const settings = await ctx.db.siteSettings.findUnique({
+          where: { id: "default" },
+          select: { visualFeedbackEnabled: true },
+        });
+        if (!settings?.visualFeedbackEnabled) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Visual feedback is disabled by your workspace admin",
+          });
+        }
+      }
+
+      if (nextVisualFeedbackEnabled && !hasImageFrame) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Visual feedback requires at least one image attachment",
+        });
+      }
+
+      if (
+        existingPost.feedbackArtifact &&
+        existingPost.feedbackArtifact._count.sessions > 0
+      ) {
+        const nextSignature = getImageFrameSignature(nextAttachments);
+        if (nextSignature !== existingPost.feedbackArtifact.frameSignature) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Cannot change visual feedback frames after feedback sessions exist",
+          });
+        }
       }
 
       // Delete existing attachments and project links if updating
@@ -384,9 +618,10 @@ export const postRouter = createTRPCRouter({
         where: { id: input.id },
         data: {
           title: input.title,
-          content: input.content,
+          content: input.content as Prisma.InputJsonValue | undefined,
           liveUrl: input.liveUrl,
           hideFromHome: input.hideFromHome,
+          visualFeedbackEnabled: input.visualFeedbackEnabled,
           attachments: input.attachments
             ? {
                 create: input.attachments.map((att) => ({
@@ -398,7 +633,11 @@ export const postRouter = createTRPCRouter({
                   width: att.width,
                   height: att.height,
                   thumbnailUrl: att.thumbnailUrl,
-                  metadata: att.metadata,
+                  metadata:
+                    att.metadata as
+                      | Prisma.InputJsonValue
+                      | Prisma.NullableJsonNullValueInput
+                      | undefined,
                   order: att.order,
                 })),
               }
@@ -432,8 +671,34 @@ export const postRouter = createTRPCRouter({
               },
             },
           },
+          feedbackArtifact: {
+            include: {
+              _count: {
+                select: {
+                  sessions: true,
+                },
+              },
+            },
+          },
         },
       });
+
+      if (nextVisualFeedbackEnabled) {
+        await syncFeedbackArtifact({
+          db: ctx.db,
+          postId: post.id,
+          authorId: ctx.session.user.id,
+          attachments: post.attachments.map((attachment) => ({
+            attachmentId: attachment.id,
+            type: attachment.type,
+            url: attachment.url,
+            thumbnailUrl: attachment.thumbnailUrl,
+            width: attachment.width,
+            height: attachment.height,
+            order: attachment.order,
+          })),
+        });
+      }
 
       // Create mention notifications for new mentions in updated content
       if (input.content) {

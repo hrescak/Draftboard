@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { SerializedEditorState } from "lexical";
+import { Loader2, MessageCircle } from "lucide-react";
+import { FeedbackAudioPlayer } from "~/components/feedback/FeedbackAudioPlayer";
+import { FeedbackPlayer } from "~/components/feedback/FeedbackPlayer";
 import { UserAvatar } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
+import { api } from "~/lib/trpc/client";
 import { formatRelativeTime } from "~/lib/utils";
 import { ReactionButton } from "~/components/reactions/ReactionButton";
 import { CommentComposer } from "./CommentComposer";
 import { SimpleMarkdownContent } from "~/components/editor/SimpleMarkdownEditor";
-import { MessageCircle } from "lucide-react";
-import type { SerializedEditorState } from "lexical";
 
 interface CommentThreadProps {
   comment: {
@@ -25,6 +30,12 @@ interface CommentThreadProps {
       id: string;
       content: unknown;
       createdAt: Date;
+      coordinates?: unknown;
+      feedbackAudio?: {
+        url: string;
+        mimeType: string | null;
+        durationSec: number | null;
+      } | null;
       author: {
         id: string;
         displayName: string;
@@ -39,6 +50,12 @@ interface CommentThreadProps {
       type: string;
       userId: string;
     }>;
+    coordinates?: unknown;
+    feedbackAudio?: {
+      url: string;
+      mimeType: string | null;
+      durationSec: number | null;
+    } | null;
   };
   postId: string;
 }
@@ -85,6 +102,48 @@ function extractPlainText(content: unknown): string {
   return texts.join(" ");
 }
 
+interface VisualFeedbackMetadata {
+  entryType: "SESSION" | "COMMENT";
+  feedbackSessionId: string | null;
+  feedbackCommentId: string | null;
+  hasAudio: boolean;
+}
+
+function parseVisualFeedbackMetadata(
+  coordinates: unknown
+): VisualFeedbackMetadata | null {
+  if (!coordinates || typeof coordinates !== "object") {
+    return null;
+  }
+
+  const value = coordinates as Record<string, unknown>;
+  if (value.source !== "VISUAL_FEEDBACK") {
+    return null;
+  }
+
+  const entryType =
+    value.entryType === "SESSION" || value.entryType === "COMMENT"
+      ? value.entryType
+      : null;
+
+  if (!entryType) {
+    return null;
+  }
+
+  return {
+    entryType,
+    feedbackSessionId:
+      typeof value.feedbackSessionId === "string"
+        ? value.feedbackSessionId
+        : null,
+    feedbackCommentId:
+      typeof value.feedbackCommentId === "string"
+        ? value.feedbackCommentId
+        : null,
+    hasAudio: value.hasAudio === true,
+  };
+}
+
 function CommentContent({ content }: { content: unknown }) {
   if (isLexicalContent(content)) {
     return <SimpleMarkdownContent content={content} />;
@@ -95,6 +154,78 @@ function CommentContent({ content }: { content: unknown }) {
 
 export function CommentThread({ comment, postId }: CommentThreadProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const visualFeedback = parseVisualFeedbackMetadata(comment.coordinates);
+  const recordWatchTimeMutation = api.feedback.recordWatchTime.useMutation();
+  const hasCommentText = extractPlainText(comment.content).trim().length > 0;
+  const isVoiceOnlyVisualFeedback =
+    visualFeedback?.entryType === "COMMENT" &&
+    visualFeedback.hasAudio &&
+    !hasCommentText;
+  const inlineVideoSessionId =
+    visualFeedback?.entryType === "SESSION"
+      ? visualFeedback.feedbackSessionId
+      : null;
+  const shouldLoadInlineVideo = isVideoModalOpen && !!inlineVideoSessionId;
+  const {
+    data: inlineVideoSession,
+    isLoading: isLoadingInlineVideoSession,
+    error: inlineVideoSessionError,
+  } = api.feedback.getSession.useQuery(
+    { sessionId: inlineVideoSessionId ?? "" },
+    {
+      enabled: shouldLoadInlineVideo,
+      retry: false,
+    }
+  );
+  const handleInlineVideoTimeUpdate = useCallback(() => undefined, []);
+  const handleInlineVideoWatchChunk = useCallback(
+    (deltaMs: number) => {
+      if (!inlineVideoSessionId || recordWatchTimeMutation.isPending) {
+        return;
+      }
+
+      recordWatchTimeMutation.mutate(
+        {
+          sessionId: inlineVideoSessionId,
+          deltaMs,
+        },
+        {
+          onError: () => undefined,
+        }
+      );
+    },
+    [inlineVideoSessionId, recordWatchTimeMutation]
+  );
+
+  const openFeedbackView = () => {
+    if (!visualFeedback) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", "feedback");
+
+    if (visualFeedback.feedbackSessionId) {
+      params.set("session", visualFeedback.feedbackSessionId);
+    } else {
+      params.delete("session");
+    }
+
+    if (visualFeedback.feedbackCommentId) {
+      params.set("comment", visualFeedback.feedbackCommentId);
+    } else {
+      params.delete("comment");
+    }
+
+    const queryString = params.toString();
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+      scroll: false,
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -118,6 +249,54 @@ export function CommentThread({ comment, postId }: CommentThreadProps) {
             </div>
             <div className="mt-1">
               <CommentContent content={comment.content} />
+              {isVoiceOnlyVisualFeedback && comment.feedbackAudio?.url && (
+                <FeedbackAudioPlayer
+                  url={comment.feedbackAudio.url}
+                  mimeType={comment.feedbackAudio.mimeType}
+                  className="mt-2"
+                />
+              )}
+              {visualFeedback && (
+                <div className="mt-2 inline-flex flex-wrap items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5">
+                  {!isVoiceOnlyVisualFeedback && (
+                    <p className="text-[11px] font-medium text-primary">
+                      {visualFeedback.entryType === "SESSION"
+                        ? "Visual feedback video"
+                        : visualFeedback.hasAudio
+                          ? "Visual feedback comment (audio)"
+                          : "Visual feedback comment"}
+                    </p>
+                  )}
+                  {visualFeedback.entryType === "SESSION" &&
+                    visualFeedback.feedbackSessionId && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 rounded-full px-1.5 text-[11px] text-primary hover:bg-primary hover:text-primary-foreground"
+                        onClick={() => setIsVideoModalOpen(true)}
+                      >
+                        Play video
+                      </Button>
+                    )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 rounded-full px-1.5 text-[11px] text-primary hover:bg-primary hover:text-primary-foreground"
+                    onClick={openFeedbackView}
+                  >
+                    Open feedback
+                  </Button>
+                </div>
+              )}
+              {!isVoiceOnlyVisualFeedback && comment.feedbackAudio?.url && (
+                <FeedbackAudioPlayer
+                  url={comment.feedbackAudio.url}
+                  mimeType={comment.feedbackAudio.mimeType}
+                  className="mt-2"
+                />
+              )}
             </div>
           </div>
           <div className="mt-1 flex items-center gap-2">
@@ -189,6 +368,37 @@ export function CommentThread({ comment, postId }: CommentThreadProps) {
           ))}
         </div>
       )}
+
+      <Dialog open={isVideoModalOpen} onOpenChange={setIsVideoModalOpen}>
+        <DialogContent className="w-[96vw] max-w-4xl p-4">
+          <DialogTitle className="sr-only">Visual feedback video</DialogTitle>
+          <div className="space-y-2">
+            {isLoadingInlineVideoSession && (
+              <div className="flex h-64 items-center justify-center rounded-lg border bg-background/70">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {inlineVideoSessionError && (
+              <p className="text-sm text-destructive">
+                Unable to load this feedback video.
+              </p>
+            )}
+            {inlineVideoSession &&
+              (inlineVideoSession.type === "VIDEO" ? (
+                <FeedbackPlayer
+                  session={inlineVideoSession}
+                  seekToMs={null}
+                  onTimeUpdate={handleInlineVideoTimeUpdate}
+                  onWatchChunk={handleInlineVideoWatchChunk}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  This feedback entry has no video recording.
+                </p>
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
