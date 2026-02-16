@@ -20,6 +20,9 @@ export default function AdminSettingsPage() {
   const utils = api.useUtils();
 
   const { data: settings, isLoading } = api.site.getSettings.useQuery();
+  const { data: authModeData } = api.user.authMode.useQuery();
+
+  const isCredentialsAuth = authModeData?.mode === "credentials";
 
   const regenerateMutation = api.site.regenerateInvite.useMutation({
     onSuccess: () => {
@@ -53,57 +56,59 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Invite Link</CardTitle>
-          <CardDescription>
-            Share this link with people you want to invite to Draftboard.
-            Anyone with this link can create an account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="inviteLink">Invite URL</Label>
-            <div className="flex gap-2">
-              <Input
-                id="inviteLink"
-                value={inviteUrl}
-                readOnly
-                className="font-mono text-sm"
-              />
+      {isCredentialsAuth && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Invite Link</CardTitle>
+            <CardDescription>
+              Share this link with people you want to invite to Draftboard.
+              Anyone with this link can create an account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="inviteLink">Invite URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="inviteLink"
+                  value={inviteUrl}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={copyInviteLink}
+                  title="Copy invite link"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
               <Button
                 variant="outline"
-                size="icon"
-                onClick={copyInviteLink}
-                title="Copy invite link"
+                onClick={() => regenerateMutation.mutate()}
+                disabled={regenerateMutation.isPending}
               >
-                {copied ? (
-                  <Check className="h-4 w-4 text-green-500" />
+                {regenerateMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Copy className="h-4 w-4" />
+                  <RefreshCw className="mr-2 h-4 w-4" />
                 )}
+                Regenerate Link
               </Button>
+              <p className="text-sm text-muted-foreground">
+                Regenerating will invalidate the current link.
+              </p>
             </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              onClick={() => regenerateMutation.mutate()}
-              disabled={regenerateMutation.isPending}
-            >
-              {regenerateMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Regenerate Link
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              Regenerating will invalidate the current link.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

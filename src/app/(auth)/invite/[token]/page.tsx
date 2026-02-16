@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { db } from "~/server/db";
+import { isSSO } from "~/lib/auth-provider";
 import { InviteProcessor } from "./invite-processor";
 
 export const metadata: Metadata = {
@@ -24,6 +25,11 @@ interface PageProps {
 }
 
 export default async function InvitePage({ params }: PageProps) {
+  // Invite links don't apply for SSO — users are auto-provisioned
+  if (isSSO()) {
+    redirect("/sign-in");
+  }
+
   const { token } = await params;
 
   // Validate the invite token

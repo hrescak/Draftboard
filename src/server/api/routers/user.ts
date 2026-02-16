@@ -8,6 +8,7 @@ import {
   adminProcedure,
 } from "~/server/api/trpc";
 import { signUpSchema, updateProfileSchema, resetPasswordSchema } from "~/lib/validators";
+import { getAuthMode, isSSO } from "~/lib/auth-provider";
 
 // Token expiration time: 24 hours
 const PASSWORD_RESET_TOKEN_EXPIRY_HOURS = 24;
@@ -18,9 +19,25 @@ const registerSchema = signUpSchema.extend({
 });
 
 export const userRouter = createTRPCRouter({
+  /**
+   * Returns the current auth mode so client components can adapt their UI.
+   * For example, SSO deployments hide password reset and invite links.
+   */
+  authMode: publicProcedure.query(() => {
+    return { mode: getAuthMode() };
+  }),
+
   register: publicProcedure
     .input(registerSchema)
     .mutation(async ({ ctx, input }) => {
+      // Registration is only available for credentials auth
+      if (isSSO()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Registration is not available when using SSO authentication",
+        });
+      }
+
       // Check if this is the first user (no invite needed)
       const userCount = await ctx.db.user.count();
       const isFirstUser = userCount === 0;
@@ -286,10 +303,17 @@ export const userRouter = createTRPCRouter({
       return user;
     }),
 
-  // Password reset endpoints
+  // Password reset endpoints (credentials auth only)
   generatePasswordResetToken: adminProcedure
     .input(z.object({ userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      if (isSSO()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Password reset is not available when using SSO authentication",
+        });
+      }
+
       const targetUser = await ctx.db.user.findUnique({
         where: { id: input.userId },
         select: { id: true, displayName: true, email: true },
@@ -331,6 +355,10 @@ export const userRouter = createTRPCRouter({
   validatePasswordResetToken: publicProcedure
     .input(z.object({ token: z.string() }))
     .query(async ({ ctx, input }) => {
+      if (isSSO()) {
+        return { valid: false, reason: "Password reset is not available with SSO" };
+      }
+
       const resetToken = await ctx.db.passwordResetToken.findUnique({
         where: { id: input.token },
         include: {
@@ -365,6 +393,13 @@ export const userRouter = createTRPCRouter({
   resetPassword: publicProcedure
     .input(resetPasswordSchema)
     .mutation(async ({ ctx, input }) => {
+      if (isSSO()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Password reset is not available when using SSO authentication",
+        });
+      }
+
       const resetToken = await ctx.db.passwordResetToken.findUnique({
         where: { id: input.token },
         include: { user: true },
