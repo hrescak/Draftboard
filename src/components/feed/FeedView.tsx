@@ -116,7 +116,7 @@ export function FeedView() {
           ))}
         </div>
       ) : (
-        <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen px-3 sm:pl-[calc(4rem+12px)] sm:pr-3">
+        <div className="relative left-1/2 -mx-[50vw] w-screen px-3 sm:-mx-[calc(50vw-2rem)] sm:w-[calc(100vw-4rem)]">
           <GridView posts={posts} />
         </div>
       )}

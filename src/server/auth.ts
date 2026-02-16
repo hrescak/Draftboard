@@ -93,8 +93,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           account.provider === "google" &&
           process.env.AUTH_GOOGLE_ALLOWED_DOMAIN
         ) {
-          const domain = email.split("@")[1];
-          if (domain !== process.env.AUTH_GOOGLE_ALLOWED_DOMAIN) {
+          const domain = email.split("@")[1]?.toLowerCase();
+          if (domain !== process.env.AUTH_GOOGLE_ALLOWED_DOMAIN.toLowerCase()) {
             return "/sign-in?error=domain_not_allowed";
           }
         }
