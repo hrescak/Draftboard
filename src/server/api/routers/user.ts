@@ -9,6 +9,11 @@ import {
 } from "~/server/api/trpc";
 import { signUpSchema, updateProfileSchema, resetPasswordSchema } from "~/lib/validators";
 import { getAuthMode, isSSO } from "~/lib/auth-provider";
+import {
+  ensureUniqueProfileSlug,
+  normalizeProfileSlug,
+  profileDisplayNameToSlug,
+} from "~/lib/profile-slug";
 
 // Token expiration time: 24 hours
 const PASSWORD_RESET_TOKEN_EXPIRY_HOURS = 24;
@@ -76,6 +81,11 @@ export const userRouter = createTRPCRouter({
       }
 
       const passwordHash = await hash(input.password, 12);
+      const preferredProfileSlug = profileDisplayNameToSlug(input.displayName);
+      const profileSlug = await ensureUniqueProfileSlug({
+        db: ctx.db,
+        preferredSlug: preferredProfileSlug,
+      });
 
       // First user becomes OWNER, others are MEMBER
       const role = isFirstUser ? "OWNER" : "MEMBER";
@@ -85,12 +95,14 @@ export const userRouter = createTRPCRouter({
           email: input.email,
           passwordHash,
           displayName: input.displayName,
+          profileSlug,
           role,
         },
         select: {
           id: true,
           email: true,
           displayName: true,
+          profileSlug: true,
           role: true,
         },
       });
@@ -105,6 +117,7 @@ export const userRouter = createTRPCRouter({
         id: true,
         email: true,
         displayName: true,
+        profileSlug: true,
         avatarUrl: true,
         role: true,
         createdAt: true,
@@ -127,6 +140,7 @@ export const userRouter = createTRPCRouter({
           id: true,
           email: true,
           displayName: true,
+          profileSlug: true,
           avatarUrl: true,
           deactivated: true,
           createdAt: true,
@@ -143,13 +157,28 @@ export const userRouter = createTRPCRouter({
   updateProfile: protectedProcedure
     .input(updateProfileSchema)
     .mutation(async ({ ctx, input }) => {
+      let normalizedProfileSlug: string | undefined;
+      if (input.profileSlug) {
+        normalizedProfileSlug = normalizeProfileSlug(input.profileSlug);
+        normalizedProfileSlug = await ensureUniqueProfileSlug({
+          db: ctx.db,
+          preferredSlug: normalizedProfileSlug,
+          excludeUserId: ctx.session.user.id,
+        });
+      }
+
       const user = await ctx.db.user.update({
         where: { id: ctx.session.user.id },
-        data: input,
+        data: {
+          displayName: input.displayName,
+          avatarUrl: input.avatarUrl,
+          profileSlug: normalizedProfileSlug,
+        },
         select: {
           id: true,
           email: true,
           displayName: true,
+          profileSlug: true,
           avatarUrl: true,
         },
       });
@@ -175,6 +204,7 @@ export const userRouter = createTRPCRouter({
         select: {
           id: true,
           displayName: true,
+          profileSlug: true,
           avatarUrl: true,
         },
         orderBy: { displayName: "asc" },

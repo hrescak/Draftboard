@@ -17,6 +17,7 @@
 - **Search** — Full-text search across posts, projects, and people
 - **Webhooks** — Optional Discord and Slack webhook integrations for new posts
 - **Admin** — User management, invite links, and site settings
+- **Static Publishing** — Host versioned static sites (e.g. Next.js export output) on `/u/<profile>/<slug>`
 - **Dark Mode** — Full light/dark theme support
 - **Mobile PWA** — Fully mobile-optimized as a Progressive Web App, feels at home on iOS and Android home screens
 
@@ -38,6 +39,12 @@ Click the button below to kickstart your deployment — it will clone the repo a
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fhrescak%2FDraftboard.git&env=DATABASE_URL,NEXTAUTH_SECRET,NEXTAUTH_URL,R2_ACCOUNT_ID,R2_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY,R2_BUCKET_NAME,R2_PUBLIC_URL&envDefaults=%7B%22NEXTAUTH_SECRET%22%3A%22generate-new-secret-locally%22%2C%22NEXTAUTH_URL%22%3A%22https%3A%2F%2F%24VERCEL_PROJECT_PRODUCTION_URL%22%2C%22R2_ACCOUNT_ID%22%3A%22your_cloudflare_account_id%22%2C%22R2_ACCESS_KEY_ID%22%3A%22your_r2_access_key_id%22%2C%22R2_BUCKET_NAME%22%3A%22your_bucket_name%22%2C%22R2_PUBLIC_URL%22%3A%22https%3A%2F%2Fyour_account_id.r2.cloudflarestorage.com%22%7D&envDescription=Deployment%20guide%20for%20Draftboard&envLink=https%3A%2F%2Fgithub.com%2Fhrescak%2FDraftboard%2Fblob%2Fmain%2Fdocs%2FDeployment-vercel.md&project-name=draftboard&repository-name=draftboard)
 
 For the full walkthrough (database setup, R2 configuration, auth provider setup, CORS, build settings), see the [Vercel deployment guide](docs/Deployment-vercel.md).
+
+## Publishing Static Websites
+
+Draftboard can also host static sites using the same R2 infrastructure. This is useful for publishing static Next.js exports (`output: "export"`) from design or marketing repos.
+
+See the full guide: [Static site publishing](docs/Static-site-publishing.md).
 
 ## Self-Hosting
 
@@ -73,6 +80,7 @@ Fill in your `.env` — at a minimum you need the core variables:
 | `R2_SECRET_ACCESS_KEY` | R2 API secret |
 | `R2_BUCKET_NAME` | R2 bucket name |
 | `R2_PUBLIC_URL` | Public URL for the R2 bucket |
+| `STATIC_PUBLISH_TOKEN` | Optional service bearer token for static site deployment API (user-scoped publish tokens can be created in Settings) |
 
 ### 3. Choose an authentication provider
 
