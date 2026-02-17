@@ -22,7 +22,7 @@ export const updateProfileSchema = z.object({
 
 // Post validators
 export const createPostSchema = z.object({
-  title: z.string().max(200).optional(),
+  title: z.string().max(200).optional().nullable(),
   content: z.any(), // Lexical editor state JSON
   liveUrl: z.string().url().optional().nullable(),
   hideFromHome: z.boolean().default(false),

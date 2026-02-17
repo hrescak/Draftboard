@@ -64,7 +64,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
 
     updateMutation.mutate({
       id,
-      title: editorData.title || undefined,
+      title: editorData.title || null,
       content: editorData.content,
       liveUrl: editorData.liveUrl || undefined,
       projectIds: editorData.projects.map((p) => p.id),

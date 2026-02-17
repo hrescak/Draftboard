@@ -15,7 +15,7 @@ import {
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import { api } from "~/lib/trpc/client";
-import { Heart, Sparkles, ThumbsUp, SmilePlus, type LucideIcon } from "lucide-react";
+import { Heart, Sparkles, CircleCheck, SmilePlus, type LucideIcon } from "lucide-react";
 import { cn, pluralize } from "~/lib/utils";
 import { EmojiImage } from "~/components/settings/EmojiUpload";
 import { ReactionsDialog } from "./ReactionsDialog";
@@ -49,9 +49,9 @@ function isCustomEmoji(reaction: ReactionOption): reaction is CustomEmojiReactio
 }
 
 const DEFAULT_REACTIONS: DefaultReaction[] = [
-  { type: "like", icon: ThumbsUp, label: "Like" },
+  { type: "like", icon: Heart, label: "Like" },
   { type: "wow", icon: Sparkles, label: "Wow" },
-  { type: "cool", icon: Heart, label: "Cool" },
+  { type: "approve", icon: CircleCheck, label: "Approve" },
 ];
 
 export function ReactionButton({
@@ -131,7 +131,7 @@ export function ReactionButton({
   const { optimisticCount, reactionCounts } = useMemo(() => {
     // Start with reactions from other users
     const otherReactions = reactions.filter((r) => r.userId !== currentUserId);
-    
+
     // Add optimistic user reaction if present
     const allReactions =
       optimisticReaction && currentUserId
@@ -176,7 +176,7 @@ export function ReactionButton({
       // Fallback for unknown reaction types
       return <SmilePlus className={size === "sm" ? "h-3 w-3" : "h-5 w-5"} />;
     }
-    
+
     if (isCustomEmoji(reaction)) {
       return (
         <EmojiImage
@@ -186,7 +186,7 @@ export function ReactionButton({
         />
       );
     }
-    
+
     const Icon = reaction.icon;
     return <Icon className={size === "sm" ? "h-3 w-3" : "h-5 w-5"} />;
   };
@@ -205,7 +205,7 @@ export function ReactionButton({
     }
 
     const names = users.map((u) => u.userName);
-    
+
     if (names.length <= 3) {
       return { text: names.join(", "), hasMore: false, moreCount: 0 };
     }
