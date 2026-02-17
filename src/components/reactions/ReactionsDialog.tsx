@@ -10,7 +10,7 @@ import {
 } from "~/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { UserAvatar } from "~/components/ui/avatar";
-import { Heart, Sparkles, ThumbsUp, SmilePlus, type LucideIcon } from "lucide-react";
+import { Heart, Sparkles, CircleCheck, SmilePlus, type LucideIcon } from "lucide-react";
 import { EmojiImage } from "~/components/settings/EmojiUpload";
 import { cn, pluralize } from "~/lib/utils";
 
@@ -41,9 +41,9 @@ function isCustomEmoji(reaction: ReactionOption): reaction is CustomEmojiReactio
 }
 
 const DEFAULT_REACTIONS: DefaultReaction[] = [
-  { type: "like", icon: ThumbsUp, label: "Like" },
+  { type: "like", icon: Heart, label: "Like" },
   { type: "wow", icon: Sparkles, label: "Wow" },
-  { type: "cool", icon: Heart, label: "Cool" },
+  { type: "approve", icon: CircleCheck, label: "Approve" },
 ];
 
 export function ReactionsDialog({
