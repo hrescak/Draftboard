@@ -16,6 +16,7 @@
     "db:studio": "prisma studio",
     "test": "vitest",
     "test:run": "vitest run",
+    "publish:static": "node scripts/publish-static-site.mjs",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

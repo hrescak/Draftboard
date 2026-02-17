@@ -28,6 +28,15 @@ export const signInSchema = z.object({
 
 export const updateProfileSchema = z.object({
   displayName: z.string().min(2).max(50).optional(),
+  profileSlug: z
+    .string()
+    .min(1)
+    .max(63)
+    .regex(
+      /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/,
+      "Use lowercase letters, numbers, and hyphens",
+    )
+    .optional(),
   avatarUrl: z.string().url().optional().nullable(),
 });
 

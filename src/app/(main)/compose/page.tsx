@@ -18,11 +18,13 @@ export default function ComposePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftId = searchParams.get("draft");
+  const prefillLiveUrl = !draftId ? searchParams.get("liveUrl") || "" : "";
+  const prefillTitle = !draftId ? searchParams.get("title") || "" : "";
 
   const [editorData, setEditorData] = useState<PostEditorData>({
-    title: "",
+    title: prefillTitle,
     content: null,
-    liveUrl: "",
+    liveUrl: prefillLiveUrl,
     projects: [],
     hideFromHome: false,
     visualFeedbackEnabled: false,
@@ -264,7 +266,10 @@ export default function ComposePage() {
                     visualFeedbackEnabled:
                       existingDraft.visualFeedbackEnabled ?? false,
                   }
-                : undefined
+                : {
+                    title: prefillTitle,
+                    liveUrl: prefillLiveUrl,
+                  }
             }
             showVisualFeedbackSetting={!!feedbackConfig?.visualFeedbackEnabled}
             onChange={handleEditorChange}

@@ -39,6 +39,12 @@ interface UploadUrlOptions {
   userId: string;
 }
 
+interface UploadUrlForKeyOptions {
+  key: string;
+  contentType: string;
+  cacheControl?: string;
+}
+
 interface MultipartUploadOptions {
   filename: string;
   contentType: string;
@@ -106,6 +112,29 @@ export async function getPresignedUploadUrl({
     : `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
 
   return { uploadUrl, key, publicUrl };
+}
+
+export async function getPresignedUploadUrlForKey({
+  key,
+  contentType,
+  cacheControl,
+}: UploadUrlForKeyOptions): Promise<{ uploadUrl: string; key: string; publicUrl: string }> {
+  const { client, bucket } = getR2Context();
+
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ContentType: contentType,
+    CacheControl: cacheControl,
+  });
+
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn: 3600 });
+
+  return {
+    uploadUrl,
+    key,
+    publicUrl: getPublicUrl(key),
+  };
 }
 
 export async function getPresignedDownloadUrl(key: string): Promise<string> {

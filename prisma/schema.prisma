@@ -50,11 +50,18 @@ enum FeedbackCommentStatus {
   RESOLVED
 }
 
+enum StaticDeploymentStatus {
+  UPLOADING
+  ACTIVE
+  ARCHIVED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
   passwordHash  String
   displayName   String
+  profileSlug   String    @unique
   avatarUrl     String?
   role          Role      @default(MEMBER)
   deactivated   Boolean   @default(false)
@@ -74,6 +81,8 @@ model User {
   feedbackSessions FeedbackSession[] @relation("FeedbackSessionAuthor")
   feedbackComments FeedbackComment[] @relation("FeedbackCommentAuthor")
   resolvedFeedbackComments FeedbackComment[] @relation("FeedbackCommentResolver")
+  staticSitesOwned StaticSite[] @relation("StaticSiteOwner")
+  staticPublishSessions StaticPublishSession[]
 }
 
 model Post {
@@ -94,6 +103,7 @@ model Post {
   projects    PostProject[]
   notifications Notification[]
   feedbackArtifact FeedbackArtifact?
+  staticPublishedDeployment StaticDeployment?
 
   @@index([authorId])
   @@index([createdAt])
@@ -169,6 +179,60 @@ model ProjectMember {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
+}
+
+model StaticSite {
+  id                 String            @id @default(cuid())
+  slug               String
+  name               String
+  ownerId            String
+  activeDeploymentId String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  owner              User              @relation("StaticSiteOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  deployments        StaticDeployment[]
+  activeDeployment   StaticDeployment? @relation("StaticSiteActiveDeployment", fields: [activeDeploymentId], references: [id], onDelete: SetNull)
+
+  @@unique([ownerId, slug])
+  @@index([ownerId, createdAt])
+  @@index([createdAt])
+}
+
+model StaticDeployment {
+  id             String                 @id @default(cuid())
+  siteId         String
+  deploymentKey  String
+  prefix         String
+  status         StaticDeploymentStatus @default(UPLOADING)
+  fileCount      Int                    @default(0)
+  totalBytes     Int?
+  publishedPostId String?               @unique
+  createdAt      DateTime               @default(now())
+  activatedAt    DateTime?
+
+  site           StaticSite             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  activeForSites StaticSite[]           @relation("StaticSiteActiveDeployment")
+  publishedPost  Post?                  @relation(fields: [publishedPostId], references: [id], onDelete: SetNull)
+
+  @@unique([siteId, deploymentKey])
+  @@index([siteId, createdAt])
+  @@index([status])
+}
+
+model StaticPublishSession {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
 }
 
 model Comment {

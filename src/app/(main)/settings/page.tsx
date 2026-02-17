@@ -16,7 +16,13 @@ export default function SettingsPage() {
   const { update: updateSession } = useSession();
   const { data: user } = api.user.me.useQuery();
   const [displayName, setDisplayName] = useState("");
+  const [profileSlug, setProfileSlug] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [publishSiteSlug, setPublishSiteSlug] = useState("my-site");
+  const [publishToken, setPublishToken] = useState<string | null>(null);
+  const [publishTokenExpiresAt, setPublishTokenExpiresAt] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [isGeneratingPublishToken, setIsGeneratingPublishToken] = useState(false);
 
   const updateMutation = api.user.updateProfile.useMutation({
     onSuccess: () => {
@@ -28,9 +34,45 @@ export default function SettingsPage() {
     e.preventDefault();
     updateMutation.mutate({
       displayName: displayName || undefined,
+      profileSlug: profileSlug || undefined,
       avatarUrl: avatarUrl || undefined,
     });
   };
+
+  const handleGeneratePublishToken = async () => {
+    try {
+      setIsGeneratingPublishToken(true);
+      setPublishError(null);
+      const response = await fetch("/api/static-sites/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresInMinutes: 60 }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to create publish token");
+      }
+
+      const result = (await response.json()) as {
+        token: string;
+        expiresAt: string;
+        profileSlug: string;
+      };
+      setPublishToken(result.token);
+      setPublishTokenExpiresAt(result.expiresAt);
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : "Failed to create publish token");
+    } finally {
+      setIsGeneratingPublishToken(false);
+    }
+  };
+
+  const publishProfileSlug = user?.profileSlug ?? profileSlug;
+  const publishBaseUrl =
+    typeof window !== "undefined" ? window.location.origin : process.env.NEXTAUTH_URL || "";
+  const publisherScriptUrl = `${publishBaseUrl}/api/static-sites/publisher-script`;
+  const publishBasePath = `/u/${publishProfileSlug || "your-name"}/${publishSiteSlug || "my-site"}`;
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -68,6 +110,19 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="profileSlug">Profile Slug</Label>
+              <Input
+                id="profileSlug"
+                placeholder={user?.profileSlug || "your-name"}
+                value={profileSlug}
+                onChange={(e) => setProfileSlug(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Your websites publish under <code>/u/{user?.profileSlug || "your-name"}/&lt;site&gt;</code>
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label>Email</Label>
               <Input value={user?.email || ""} disabled />
               <p className="text-xs text-muted-foreground">
@@ -82,6 +137,68 @@ export default function SettingsPage() {
               Save Changes
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Static Publishing</CardTitle>
+          <CardDescription>
+            Generate a publish token for your machine, then deploy static exports under your profile.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="siteSlug">Site Slug</Label>
+            <Input
+              id="siteSlug"
+              value={publishSiteSlug}
+              onChange={(e) => setPublishSiteSlug(e.target.value)}
+              placeholder="my-site"
+            />
+            <p className="text-xs text-muted-foreground">
+              URL preview: <code>/u/{publishProfileSlug || "your-name"}/{publishSiteSlug || "my-site"}</code>
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleGeneratePublishToken}
+            disabled={isGeneratingPublishToken}
+          >
+            {isGeneratingPublishToken && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Generate 1-Hour Publish Token
+          </Button>
+
+          {publishError && (
+            <p className="text-sm text-destructive">{publishError}</p>
+          )}
+
+          {publishToken && (
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Publish Token</p>
+                <code className="block overflow-x-auto rounded bg-muted p-2 text-xs">
+                  {publishToken}
+                </code>
+                <p className="text-xs text-muted-foreground">
+                  Expires at {publishTokenExpiresAt ? new Date(publishTokenExpiresAt).toLocaleString() : "unknown"}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Run from your Next.js project</p>
+                <code className="block overflow-x-auto rounded bg-muted p-2 text-xs">
+                  {`curl -fsSL ${publisherScriptUrl} -o ./draftboard-publish.mjs\nSTATIC_BASE_PATH=${publishBasePath} npm run build\nnode ./draftboard-publish.mjs --base-url ${publishBaseUrl} --token ${publishToken} --profile ${publishProfileSlug || "your-name"} --slug ${publishSiteSlug || "my-site"} --post-mode compose --open-compose true --out-dir ./out`}
+                </code>
+                <p className="text-xs text-muted-foreground">
+                  In your Next.js app, read <code>STATIC_BASE_PATH</code> in <code>next.config.ts</code> and set it as <code>basePath</code>. Compose mode outputs a prefilled <code>/compose</code> URL.
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

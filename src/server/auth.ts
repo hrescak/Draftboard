@@ -30,6 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             avatarUrl: true,
             role: true,
             deactivated: true,
+            profileSlug: true,
           },
         });
         if (freshUser) {
@@ -37,6 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Always keep avatar in sync — the DB query already happens
           // on every request, so this has no extra cost
           token.image = freshUser.avatarUrl;
+          token.profileSlug = freshUser.profileSlug;
           if (trigger === "update") {
             token.name = freshUser.displayName;
             token.role = freshUser.role;
@@ -52,6 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.name = token.name as string;
         session.user.image = token.image as string | null | undefined;
         session.user.deactivated = (token.deactivated as boolean) ?? false;
+        session.user.profileSlug = token.profileSlug as string;
       }
       return session;
     },
@@ -95,6 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.displayName,
           image: user.avatarUrl,
           role: user.role,
+          profileSlug: user.profileSlug,
         };
       },
     }),
@@ -105,6 +109,7 @@ declare module "next-auth" {
   interface User {
     role: "MEMBER" | "ADMIN" | "OWNER";
     deactivated?: boolean;
+    profileSlug: string;
   }
 
   interface Session {
@@ -115,6 +120,7 @@ declare module "next-auth" {
       image?: string | null;
       role: "MEMBER" | "ADMIN" | "OWNER";
       deactivated: boolean;
+      profileSlug: string;
     };
   }
 }
@@ -126,5 +132,6 @@ declare module "next-auth" {
     name: string;
     image?: string | null;
     deactivated?: boolean;
+    profileSlug?: string;
   }
 }
