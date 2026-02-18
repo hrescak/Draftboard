@@ -76,6 +76,39 @@ function SignedImage({ url, filename, className }: { url: string; filename: stri
   );
 }
 
+function SignedVideoThumbnail({ url, className }: { url: string; className?: string }) {
+  const r2Key = extractR2Key(url);
+  const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
+    { key: r2Key! },
+    {
+      enabled: !!r2Key,
+      staleTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-muted">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const videoSrc = signedUrlData?.url || url;
+
+  return (
+    <video
+      src={`${videoSrc}#t=0.001`}
+      className={className}
+      muted
+      preload="metadata"
+    >
+      <track kind="captions" />
+    </video>
+  );
+}
+
 export function AttachmentCarousel({
   attachments,
   postId,
@@ -136,9 +169,10 @@ export function AttachmentCarousel({
                           className="h-full w-full object-cover transition-transform duration-200 ease-in-out group-hover:scale-[1.02]"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <Play className="h-8 w-8 text-muted-foreground" />
-                        </div>
+                        <SignedVideoThumbnail
+                          url={attachment.url}
+                          className="h-full w-full object-cover transition-transform duration-200 ease-in-out group-hover:scale-[1.02]"
+                        />
                       )}
                       <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90">
