@@ -95,9 +95,11 @@ function SignedVideoThumbnail({ url, className }: { url: string; className?: str
     );
   }
 
+  const videoSrc = signedUrlData?.url || url;
+
   return (
     <video
-      src={signedUrlData?.url || url}
+      src={`${videoSrc}#t=0.001`}
       className={className}
       muted
       preload="metadata"
