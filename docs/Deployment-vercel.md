@@ -290,6 +290,7 @@ No additional variables needed.
 | `R2_SECRET_ACCESS_KEY` | Your storage API secret key |
 | `R2_BUCKET_NAME` | The name of your bucket |
 | `R2_PUBLIC_URL` | Public URL for the bucket, e.g. `https://<id>.r2.cloudflarestorage.com` |
+| `STATIC_PUBLISH_TOKEN` | Optional service bearer token for static site deployment API |
 
 > Make sure all environment variables are set for the **Production** environment (and optionally Preview/Development).
 

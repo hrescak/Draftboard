@@ -18,11 +18,13 @@ export default function ComposePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftId = searchParams.get("draft");
+  const prefillLiveUrl = !draftId ? searchParams.get("liveUrl") || "" : "";
+  const prefillTitle = !draftId ? searchParams.get("title") || "" : "";
 
   const [editorData, setEditorData] = useState<PostEditorData>({
-    title: "",
+    title: prefillTitle,
     content: null,
-    liveUrl: "",
+    liveUrl: prefillLiveUrl,
     projects: [],
     hideFromHome: false,
   });
@@ -254,7 +256,10 @@ export default function ComposePage() {
                     liveUrl: existingDraft.liveUrl || "",
                     projects: [],
                   }
-                : undefined
+                : {
+                    title: prefillTitle,
+                    liveUrl: prefillLiveUrl,
+                  }
             }
             onChange={handleEditorChange}
             editorKey={editorKeyRef.current}

@@ -5,6 +5,10 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { authConfig } from "./auth.config";
 import { getAuthMode } from "~/lib/auth-provider";
+import {
+  ensureUniqueProfileSlug,
+  profileDisplayNameToSlug,
+} from "~/lib/profile-slug";
 
 const authMode = getAuthMode();
 
@@ -65,6 +69,7 @@ function getProviders() {
           name: user.displayName,
           image: user.avatarUrl,
           role: user.role,
+          profileSlug: user.profileSlug,
         };
       },
     }),
@@ -106,11 +111,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Auto-provision: first user becomes OWNER, others become MEMBER
           const userCount = await db.user.count();
           const isFirstUser = userCount === 0;
+          const displayName = user.name || email.split("@")[0] || "User";
+          const profileSlug = await ensureUniqueProfileSlug({
+            db,
+            preferredSlug: profileDisplayNameToSlug(displayName),
+          });
 
           dbUser = await db.user.create({
             data: {
               email,
-              displayName: user.name || email.split("@")[0],
+              displayName,
+              profileSlug,
               avatarUrl: user.image || null,
               role: isFirstUser ? "OWNER" : "MEMBER",
             },
@@ -141,6 +152,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               displayName: true,
               avatarUrl: true,
               deactivated: true,
+              profileSlug: true,
             },
           });
           if (dbUser) {
@@ -149,6 +161,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.name = dbUser.displayName;
             token.image = dbUser.avatarUrl;
             token.deactivated = dbUser.deactivated;
+            token.profileSlug = dbUser.profileSlug;
           }
         } else {
           // Credentials sign-in: user object already has our DB data
@@ -156,6 +169,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.role = user.role;
           token.name = user.name;
           token.image = user.image;
+          token.profileSlug = user.profileSlug;
         }
       }
 
@@ -168,11 +182,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             avatarUrl: true,
             role: true,
             deactivated: true,
+            profileSlug: true,
           },
         });
         if (freshUser) {
           token.deactivated = freshUser.deactivated;
           token.image = freshUser.avatarUrl;
+          token.profileSlug = freshUser.profileSlug;
           if (trigger === "update") {
             token.name = freshUser.displayName;
             token.role = freshUser.role;
@@ -189,6 +205,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.name = token.name as string;
         session.user.image = token.image as string | null | undefined;
         session.user.deactivated = (token.deactivated as boolean) ?? false;
+        session.user.profileSlug = token.profileSlug as string;
       }
       return session;
     },
@@ -200,6 +217,7 @@ declare module "next-auth" {
   interface User {
     role: "MEMBER" | "ADMIN" | "OWNER";
     deactivated?: boolean;
+    profileSlug: string;
   }
 
   interface Session {
@@ -210,6 +228,7 @@ declare module "next-auth" {
       image?: string | null;
       role: "MEMBER" | "ADMIN" | "OWNER";
       deactivated: boolean;
+      profileSlug: string;
     };
   }
 }
@@ -221,5 +240,6 @@ declare module "next-auth" {
     name: string;
     image?: string | null;
     deactivated?: boolean;
+    profileSlug?: string;
   }
 }

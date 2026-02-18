@@ -34,16 +34,31 @@ interface UploadUrlOptions {
   userId: string;
 }
 
-export async function getPresignedUploadUrl({
-  filename,
-  contentType,
-  userId,
-}: UploadUrlOptions): Promise<{ uploadUrl: string; key: string; publicUrl: string }> {
+interface UploadUrlForKeyOptions {
+  key: string;
+  contentType: string;
+  cacheControl?: string;
+}
+
+function getR2Context(): { client: S3Client; bucket: string } {
   if (!s3Client || !R2_BUCKET_NAME) {
     throw new Error(
       "R2 storage is not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME environment variables."
     );
   }
+
+  return {
+    client: s3Client,
+    bucket: R2_BUCKET_NAME,
+  };
+}
+
+export async function getPresignedUploadUrl({
+  filename,
+  contentType,
+  userId,
+}: UploadUrlOptions): Promise<{ uploadUrl: string; key: string; publicUrl: string }> {
+  const { client, bucket } = getR2Context();
 
   // Generate a unique key with user ID and timestamp
   const timestamp = Date.now();
@@ -51,12 +66,12 @@ export async function getPresignedUploadUrl({
   const key = `uploads/${userId}/${timestamp}-${sanitizedFilename}`;
 
   const command = new PutObjectCommand({
-    Bucket: R2_BUCKET_NAME,
+    Bucket: bucket,
     Key: key,
     ContentType: contentType,
   });
 
-  const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn: 3600 });
 
   // Public URL for accessing the file after upload
   const publicUrl = R2_PUBLIC_URL
@@ -64,6 +79,29 @@ export async function getPresignedUploadUrl({
     : `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
 
   return { uploadUrl, key, publicUrl };
+}
+
+export async function getPresignedUploadUrlForKey({
+  key,
+  contentType,
+  cacheControl,
+}: UploadUrlForKeyOptions): Promise<{ uploadUrl: string; key: string; publicUrl: string }> {
+  const { client, bucket } = getR2Context();
+
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ContentType: contentType,
+    CacheControl: cacheControl,
+  });
+
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn: 3600 });
+
+  return {
+    uploadUrl,
+    key,
+    publicUrl: getPublicUrl(key),
+  };
 }
 
 export async function getPresignedDownloadUrl(key: string): Promise<string> {
