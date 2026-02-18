@@ -62,6 +62,37 @@ function SignedImage({ url, alt, className }: { url: string; alt: string; classN
   );
 }
 
+function SignedVideoThumbnail({ url, className }: { url: string; className?: string }) {
+  const r2Key = extractR2Key(url);
+  const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
+    { key: r2Key! },
+    {
+      enabled: !!r2Key,
+      staleTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex h-48 w-full items-center justify-center bg-muted">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <video
+      src={signedUrlData?.url || url}
+      className={className}
+      muted
+      preload="metadata"
+    >
+      <track kind="captions" />
+    </video>
+  );
+}
+
 export function GridView({ posts }: GridViewProps) {
   // Filter posts with visual (image/video) attachments only
   const visualPosts = posts
@@ -116,9 +147,10 @@ export function GridView({ posts }: GridViewProps) {
                     className="w-full"
                   />
                 ) : (
-                  <div className="flex aspect-video items-center justify-center">
-                    <Play className="h-12 w-12 text-muted-foreground" />
-                  </div>
+                  <SignedVideoThumbnail
+                    url={attachment.url}
+                    className="w-full"
+                  />
                 )}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90">
