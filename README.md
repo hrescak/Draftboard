@@ -145,6 +145,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture detai
 
 MIT
 
-## Ackgnowledgements
+## Acknowledgements
 
 This tool stands on the shoulders of earlier tools like [Pixelcloud](https://engineering.fb.com/2011/02/15/web/hackathon-22-redesigning-pixelcloud/) and [Campsite](https://www.campsite.com/), which helped shape many of the ideas explored here. I've been fortunate to work closely with both—contributing to Pixelcloud during my time at Facebook and supporting Campsite as an investor—and this project carries forward lessons learned from each.
