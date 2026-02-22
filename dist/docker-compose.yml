@@ -1,0 +1,46 @@
+# Local testing: build + run the app with Postgres. Migrations run automatically on start.
+#
+# Usage (from project root):
+#   docker compose -f dist/docker-compose.yml up --build
+#   Open http://localhost:3000
+#
+# Stop: docker compose -f dist/docker-compose.yml down
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: dist/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://draftboard:draftboard@db:5432/draftboard
+      AUTH_SECRET: test-secret-change-in-production
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: http://localhost:3000
+      # R2 placeholders so the app boots; uploads will fail until you set real R2_* values
+      R2_ACCOUNT_ID: ""
+      R2_ACCESS_KEY_ID: ""
+      R2_SECRET_ACCESS_KEY: ""
+      R2_BUCKET_NAME: ""
+      R2_PUBLIC_URL: ""
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: draftboard
+      POSTGRES_PASSWORD: draftboard
+      POSTGRES_DB: draftboard
+    volumes:
+      - draftboard_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U draftboard -d draftboard"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  draftboard_pgdata:
