@@ -1,8 +1,11 @@
-# Local testing: build + run the app with Postgres. Migrations run automatically on start.
+# Local testing: build + run the app with Postgres and MinIO (S3-compatible storage).
+# Migrations run automatically on start. The minio-init service creates the bucket.
 #
 # Usage (from project root):
 #   docker compose -f dist/docker-compose.yml up --build
 #   Open http://localhost:3000
+#
+# MinIO console: http://localhost:9001 (minioadmin / minioadmin)
 #
 # Stop: docker compose -f dist/docker-compose.yml down
 
@@ -18,15 +21,15 @@ services:
       AUTH_SECRET: test-secret-change-in-production
       AUTH_TRUST_HOST: "true"
       AUTH_URL: http://localhost:3000
-      # R2 placeholders so the app boots; uploads will fail until you set real R2_* values
-      R2_ACCOUNT_ID: ""
-      R2_ACCESS_KEY_ID: ""
-      R2_SECRET_ACCESS_KEY: ""
-      R2_BUCKET_NAME: ""
-      R2_PUBLIC_URL: ""
+      S3_ENDPOINT: http://localhost:9000
+      R2_ACCESS_KEY_ID: minioadmin
+      R2_SECRET_ACCESS_KEY: minioadmin
+      R2_BUCKET_NAME: draftboard
     depends_on:
       db:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   db:
     image: postgres:16-alpine
@@ -42,5 +45,34 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - draftboard_minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/draftboard
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+
 volumes:
   draftboard_pgdata:
+  draftboard_minio:
