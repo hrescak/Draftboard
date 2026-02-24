@@ -16,7 +16,7 @@ export const uploadRouter = createTRPCRouter({
       if (!isR2Configured()) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: "File uploads are not configured. Please set up R2 storage credentials (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME) in your environment variables.",
+          message: "File uploads are not configured. Please set up S3 storage credentials (S3_ENDPOINT or R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME) in your environment variables.",
         });
       }
 
@@ -43,7 +43,7 @@ export const uploadRouter = createTRPCRouter({
       if (!isR2Configured()) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: "File downloads are not configured. Please set up R2 storage credentials.",
+          message: "File downloads are not configured. Please set up S3 storage credentials (S3_ENDPOINT or R2_ACCOUNT_ID).",
         });
       }
 
