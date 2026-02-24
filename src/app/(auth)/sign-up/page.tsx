@@ -4,6 +4,8 @@ import { db } from "~/server/db";
 import { isSSO } from "~/lib/auth-provider";
 import { SignUpForm } from "./sign-up-form";
 
+export const dynamic = "force-dynamic";
+
 export default async function SignUpPage() {
   // SSO deployments don't use sign-up — users are auto-provisioned on first SSO sign-in
   if (isSSO()) {

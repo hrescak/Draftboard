@@ -5,26 +5,46 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+const S3_ENDPOINT = process.env.S3_ENDPOINT;
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
-// Check if R2 is configured
+// Check if S3-compatible storage is configured
 export function isR2Configured(): boolean {
-  return !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET_NAME);
+  return !!(
+    (S3_ENDPOINT || R2_ACCOUNT_ID) &&
+    R2_ACCESS_KEY_ID &&
+    R2_SECRET_ACCESS_KEY &&
+    R2_BUCKET_NAME
+  );
+}
+
+// Build the S3 endpoint URL
+function getEndpoint(): string {
+  if (S3_ENDPOINT) return S3_ENDPOINT;
+  return `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+}
+
+// Build a public URL for an object key
+function buildPublicUrl(key: string): string {
+  if (R2_PUBLIC_URL) return `${R2_PUBLIC_URL}/${key}`;
+  if (S3_ENDPOINT) return `${S3_ENDPOINT}/${R2_BUCKET_NAME}/${key}`;
+  return `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
 }
 
 // Only create S3 client if configured
 const s3Client = isR2Configured()
   ? new S3Client({
       region: "auto",
-      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      endpoint: getEndpoint(),
       credentials: {
         accessKeyId: R2_ACCESS_KEY_ID!,
         secretAccessKey: R2_SECRET_ACCESS_KEY!,
       },
+      forcePathStyle: !!S3_ENDPOINT,
     })
   : null;
 
@@ -41,7 +61,7 @@ export async function getPresignedUploadUrl({
 }: UploadUrlOptions): Promise<{ uploadUrl: string; key: string; publicUrl: string }> {
   if (!s3Client || !R2_BUCKET_NAME) {
     throw new Error(
-      "R2 storage is not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME environment variables."
+      "S3 storage is not configured. Please set S3_ENDPOINT (or R2_ACCOUNT_ID), R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME environment variables."
     );
   }
 
@@ -58,18 +78,13 @@ export async function getPresignedUploadUrl({
 
   const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
-  // Public URL for accessing the file after upload
-  const publicUrl = R2_PUBLIC_URL
-    ? `${R2_PUBLIC_URL}/${key}`
-    : `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
-
-  return { uploadUrl, key, publicUrl };
+  return { uploadUrl, key, publicUrl: buildPublicUrl(key) };
 }
 
 export async function getPresignedDownloadUrl(key: string): Promise<string> {
   if (!s3Client || !R2_BUCKET_NAME) {
     throw new Error(
-      "R2 storage is not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME environment variables."
+      "S3 storage is not configured. Please set S3_ENDPOINT (or R2_ACCOUNT_ID), R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME environment variables."
     );
   }
 
@@ -87,7 +102,7 @@ export async function getPresignedDownloadUrl(key: string): Promise<string> {
 export async function getWebhookImageUrl(key: string): Promise<string> {
   if (!s3Client || !R2_BUCKET_NAME) {
     throw new Error(
-      "R2 storage is not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME environment variables."
+      "S3 storage is not configured. Please set S3_ENDPOINT (or R2_ACCOUNT_ID), R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME environment variables."
     );
   }
 
@@ -102,10 +117,7 @@ export async function getWebhookImageUrl(key: string): Promise<string> {
 }
 
 export function getPublicUrl(key: string): string {
-  if (R2_PUBLIC_URL) {
-    return `${R2_PUBLIC_URL}/${key}`;
-  }
-  return `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
+  return buildPublicUrl(key);
 }
 
 // Helper to determine file type
