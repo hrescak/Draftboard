@@ -9,15 +9,18 @@ import { presignedUrlSchema } from "~/lib/validators";
 import {
   isStorageConfigured,
   getStorageProvider,
+  getBlobPathPrefix,
   getPresignedUploadUrl,
   getPresignedDownloadUrl,
 } from "~/lib/storage";
 
 export const uploadRouter = createTRPCRouter({
-  storageInfo: protectedProcedure.query(() => {
+  storageInfo: protectedProcedure.query(({ ctx }) => {
     return {
       provider: getStorageProvider(),
       configured: isStorageConfigured(),
+      blobPathPrefix: getBlobPathPrefix(),
+      userId: ctx.session.user.id,
     };
   }),
 

@@ -31,13 +31,13 @@ postgresql://[USER]:[PASSWORD]@[HOST].neon.tech/[DBNAME]?sslmode=require
 
 File and image uploads require an object storage backend. Draftboard supports two options — choose one:
 
-- **[Vercel Blob](https://vercel.com/docs/storage/vercel-blob)** (recommended for Vercel) — zero-config, built-in to Vercel, no CORS setup needed.
+- **[Vercel Blob](https://vercel.com/docs/storage/vercel-blob)** (simpler) — zero-config, built-in to Vercel, no CORS setup needed.
 - **[Cloudflare R2](https://developers.cloudflare.com/r2/)** / **[AWS S3](https://aws.amazon.com/s3/)** — S3-compatible object storage.
 
 If both are configured, Vercel Blob takes priority.
 
 <details>
-<summary><strong>Option A: Vercel Blob (recommended)</strong></summary>
+<summary><strong>Option A: Vercel Blob (simpler)</strong></summary>
 
 1. In your Vercel project dashboard, go to **Storage > Create > Blob**.
 2. Follow the prompts to create a new Blob store and connect it to your project.
@@ -50,6 +50,14 @@ If you're setting up manually (e.g. for local development), copy the read-write 
 ```
 BLOB_READ_WRITE_TOKEN=vercel_blob_rw_xxxxxxxxxxxxx
 ```
+
+Optionally, set `BLOB_PATH_PREFIX` to organize uploads under a specific folder in your Blob store (useful if you share a store across projects):
+
+```
+BLOB_PATH_PREFIX=draftboard
+```
+
+Files will be stored as `{prefix}/uploads/{userId}/{timestamp}-{filename}`. If omitted, files go under `uploads/...` directly.
 
 </details>
 
@@ -307,11 +315,12 @@ No additional variables needed.
 
 #### Storage (choose one)
 
-**Vercel Blob (recommended):**
+**Vercel Blob (simpler):**
 
 | Variable | Value |
 |---|---|
 | `BLOB_READ_WRITE_TOKEN` | Auto-added when you create a Blob store in the Vercel dashboard |
+| `BLOB_PATH_PREFIX` | *(optional)* Folder prefix for uploads, e.g. `draftboard` |
 
 **Cloudflare R2 / AWS S3:**
 

@@ -19,6 +19,15 @@ export function isStorageConfigured(): boolean {
   return isR2Configured();
 }
 
+/**
+ * Returns the configured path prefix for Vercel Blob uploads.
+ * Files will be stored under `{prefix}/uploads/{userId}/{timestamp}-{filename}`.
+ * If no prefix is set, files go under `uploads/...` directly.
+ */
+export function getBlobPathPrefix(): string {
+  return process.env.BLOB_PATH_PREFIX ?? "";
+}
+
 export function isVercelBlobUrl(url: string): boolean {
   return url.includes("blob.vercel-storage.com");
 }

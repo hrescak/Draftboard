@@ -8,6 +8,22 @@ interface UploadResult {
   url: string;
 }
 
+function sanitizeFilename(filename: string): string {
+  return filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+}
+
+function buildBlobPathname(
+  filename: string,
+  userId: string,
+  pathPrefix: string
+): string {
+  const timestamp = Date.now();
+  const sanitized = sanitizeFilename(filename);
+  const segments = [pathPrefix, "uploads", userId, `${timestamp}-${sanitized}`]
+    .filter(Boolean);
+  return segments.join("/");
+}
+
 /**
  * Hook that provides a unified file upload function.
  * Automatically uses the correct storage provider (R2 or Vercel Blob)
@@ -26,7 +42,12 @@ export function useUpload() {
       const provider = storageInfo?.provider ?? "r2";
 
       if (provider === "vercel-blob") {
-        const blob = await upload(file.name, file, {
+        const pathname = buildBlobPathname(
+          file.name,
+          storageInfo?.userId ?? "anonymous",
+          storageInfo?.blobPathPrefix ?? ""
+        );
+        const blob = await upload(pathname, file, {
           access: "public",
           handleUploadUrl: "/api/upload/blob",
         });
@@ -51,7 +72,7 @@ export function useUpload() {
 
       return { url: publicUrl };
     },
-    [storageInfo?.provider, getUploadUrl]
+    [storageInfo?.provider, storageInfo?.userId, storageInfo?.blobPathPrefix, getUploadUrl]
   );
 
   return {
