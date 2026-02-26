@@ -15,6 +15,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { Suspense, useEffect, useState, useId } from "react";
 import { FileIcon, Download, Play, ExternalLink, Loader2, X } from "lucide-react";
 import { api } from "~/lib/trpc/client";
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
 import { Lightbox } from "~/components/ui/lightbox";
 import { useMediaLightbox } from "~/components/ui/media-lightbox-context";
 
@@ -39,18 +40,6 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-// Extract R2 key from URL if it's an R2 URL
-function extractR2Key(url: string): string | null {
-  // Match patterns like:
-  // https://bucket.accountid.r2.cloudflarestorage.com/uploads/userid/timestamp-filename
-  // https://custom-domain.com/uploads/userid/timestamp-filename
-  const match = url.match(/uploads\/[^\/]+\/[^\/]+$/);
-  if (match) {
-    return match[0];
-  }
-  return null;
 }
 
 function AttachmentComponent({
@@ -106,26 +95,26 @@ function AttachmentComponent({
     });
   };
 
-  const r2Key = extractR2Key(url);
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = needsUrlSigning(url);
+  const isMedia = attachmentType === "IMAGE" || attachmentType === "VIDEO";
   const { data: signedUrlData, isLoading: isLoadingUrl, error: urlError } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key && (attachmentType === "IMAGE" || attachmentType === "VIDEO"),
-      staleTime: 30 * 60 * 1000, // Cache for 30 minutes (URL expires in 1 hour)
+      enabled: requiresSigning && isMedia && !!storageKey,
+      staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
   useEffect(() => {
-    if (attachmentType !== "IMAGE" && attachmentType !== "VIDEO") {
-      // For non-media types, use original URL
+    if (!isMedia) {
       setDisplayUrl(url);
       setIsLoading(false);
       return;
     }
 
-    if (!r2Key) {
-      // If we can't extract a key, try using the URL directly
+    if (!requiresSigning || !storageKey) {
       setDisplayUrl(url);
       setIsLoading(false);
       return;
@@ -135,14 +124,13 @@ function AttachmentComponent({
       setDisplayUrl(signedUrlData.url);
       setIsLoading(false);
     } else if (urlError) {
-      // If signed URL fails, try original URL
       setDisplayUrl(url);
       setIsLoading(false);
       setError("Could not load signed URL, trying direct URL");
     } else if (isLoadingUrl) {
       setIsLoading(true);
     }
-  }, [attachmentType, url, r2Key, signedUrlData, urlError, isLoadingUrl]);
+  }, [isMedia, url, requiresSigning, storageKey, signedUrlData, urlError, isLoadingUrl]);
 
   // Register this media item with the shared lightbox context
   useEffect(() => {
@@ -359,12 +347,12 @@ function AttachmentComponent({
     );
   }
 
-  // Generic file attachment - use signed URL for download
-  const downloadKey = extractR2Key(url);
+  const downloadKey = extractStorageKey(url);
+  const downloadNeedsSigning = needsUrlSigning(url);
   const { data: downloadUrlData } = api.upload.getDownloadUrl.useQuery(
     { key: downloadKey! },
     {
-      enabled: !!downloadKey,
+      enabled: downloadNeedsSigning && !!downloadKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }

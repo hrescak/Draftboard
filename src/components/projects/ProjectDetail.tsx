@@ -31,17 +31,7 @@ import { useSession } from "next-auth/react";
 import { SimpleMarkdownContent } from "~/components/editor/SimpleMarkdownEditor";
 import type { SerializedEditorState } from "lexical";
 
-// Extract R2 key from URL
-function extractR2Key(url: string): string | null {
-  const urlWithoutParams = url.split('?')[0];
-  const match = urlWithoutParams?.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
-}
-
-// Check if URL is already a signed URL
-function isSignedUrl(url: string): boolean {
-  return url.includes('X-Amz-') || url.includes('x-amz-');
-}
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
 
 // Check if content is a Lexical editor state
 function isLexicalContent(content: unknown): content is SerializedEditorState {
@@ -73,21 +63,21 @@ function ProjectDescription({ description }: { description: unknown }) {
 }
 
 function SignedCoverImage({ url, name }: { url: string; name: string }) {
-  const alreadySigned = isSignedUrl(url);
-  const r2Key = !alreadySigned ? extractR2Key(url) : null;
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = needsUrlSigning(url);
 
   const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key && !alreadySigned,
+      enabled: requiresSigning && !!storageKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
-  const displayUrl = alreadySigned ? url : (signedUrlData?.url || url);
+  const displayUrl = requiresSigning && signedUrlData?.url ? signedUrlData.url : url;
 
-  if (!alreadySigned && isLoading && r2Key) {
+  if (requiresSigning && isLoading && storageKey) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-muted">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

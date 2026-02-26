@@ -3,23 +3,16 @@
  * Sends notifications when new posts are created
  */
 
-import { getWebhookImageUrl } from "./r2";
+import { getWebhookImageUrl, extractStorageKey } from "./storage";
 
-// Extract R2 key from URL
-function extractR2Key(url: string): string | null {
-  const match = url.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
-}
-
-// Get a signed URL for webhook images (valid for 7 days)
 async function getSignedImageUrl(url: string | null): Promise<string | null> {
   if (!url) return null;
   
-  const r2Key = extractR2Key(url);
-  if (!r2Key) return url; // Not an R2 URL, return as-is
+  const key = extractStorageKey(url);
+  if (!key) return url;
   
   try {
-    return await getWebhookImageUrl(r2Key);
+    return await getWebhookImageUrl(key);
   } catch (error) {
     console.error("Failed to sign image URL for webhook:", error);
     return null;

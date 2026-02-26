@@ -30,7 +30,7 @@ import {
   FileUp,
 } from "lucide-react";
 import { $createAttachmentNode, type AttachmentType } from "../nodes/AttachmentNode";
-import { api } from "~/lib/trpc/client";
+import { useUpload } from "~/lib/hooks/use-upload";
 import { cn } from "~/lib/utils";
 
 interface CommandOption {
@@ -106,7 +106,7 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadMutation = api.upload.getUploadUrl.useMutation();
+  const { uploadFile } = useUpload();
   const pendingCommandRef = useRef<string | null>(null);
 
   const filteredCommands = useMemo(() => {
@@ -128,26 +128,7 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
   const handleFileUpload = useCallback(
     async (file: File) => {
       try {
-        const result = await uploadMutation.mutateAsync({
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-        });
-
-        const uploadResponse = await fetch(result.uploadUrl, {
-          method: "PUT",
-          body: file,
-          headers: {
-            "Content-Type": file.type,
-          },
-        });
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error("R2 upload failed:", uploadResponse.status, errorText);
-          alert(`Upload failed: ${uploadResponse.status} - ${errorText || "Unknown error"}`);
-          return;
-        }
+        const { url } = await uploadFile(file);
 
         let attachmentType: AttachmentType = "FILE";
         if (file.type.startsWith("image/")) {
@@ -161,7 +142,7 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
           if ($isRangeSelection(selection)) {
             const attachmentNode = $createAttachmentNode({
               attachmentType,
-              url: result.publicUrl,
+              url,
               filename: file.name,
               mimeType: file.type,
               size: file.size,
@@ -174,7 +155,7 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
         alert(`Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
     },
-    [editor, uploadMutation]
+    [editor, uploadFile]
   );
 
   const executeCommand = useCallback(
