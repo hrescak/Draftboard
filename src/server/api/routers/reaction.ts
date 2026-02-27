@@ -5,14 +5,7 @@ import {
   activeUserProcedure,
 } from "~/server/api/trpc";
 import { toggleReactionSchema } from "~/lib/validators";
-import { getPresignedDownloadUrl, isR2Configured } from "~/lib/r2";
-
-// Extract R2 key from URL
-function extractR2Key(url: string): string | null {
-  const urlWithoutParams = url.split("?")[0];
-  const match = urlWithoutParams?.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
-}
+import { getPresignedDownloadUrl, isStorageConfigured, extractStorageKey } from "~/lib/storage";
 
 export const reactionRouter = createTRPCRouter({
   toggle: activeUserProcedure
@@ -174,10 +167,10 @@ export const reactionRouter = createTRPCRouter({
     });
 
     // Sign the image URLs if R2 is configured
-    if (isR2Configured()) {
+    if (isStorageConfigured()) {
       const signedEmojis = await Promise.all(
         emojis.map(async (emoji) => {
-          const key = extractR2Key(emoji.imageUrl);
+          const key = extractStorageKey(emoji.imageUrl);
           if (key) {
             try {
               const signedUrl = await getPresignedDownloadUrl(key);

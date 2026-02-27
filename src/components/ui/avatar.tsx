@@ -4,6 +4,7 @@ import * as React from "react";
 import * as AvatarPrimitive from "@radix-ui/react-avatar";
 import { cn, getInitials } from "~/lib/utils";
 import { api } from "~/lib/trpc/client";
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
@@ -47,18 +48,6 @@ const AvatarFallback = React.forwardRef<
 ));
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
 
-// Helper to extract R2 key from URL
-function extractR2Key(url: string): string | null {
-  const urlWithoutParams = url.split("?")[0];
-  const match = urlWithoutParams?.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
-}
-
-// Check if URL is already a signed URL
-function isSignedUrl(url: string): boolean {
-  return url.includes("X-Amz-") || url.includes("x-amz-");
-}
-
 interface UserAvatarProps {
   avatarUrl?: string | null;
   name: string;
@@ -66,31 +55,29 @@ interface UserAvatarProps {
 }
 
 /**
- * UserAvatar - A complete avatar component that handles R2 signed URLs automatically
- * Use this component whenever displaying a user's avatar
+ * UserAvatar - A complete avatar component that handles storage signed URLs automatically.
+ * For R2, URLs are signed on-the-fly. For Vercel Blob, URLs are public and used as-is.
  */
 function UserAvatar({ avatarUrl, name, className }: UserAvatarProps) {
-  const needsSigning = avatarUrl && !isSignedUrl(avatarUrl);
-  const r2Key = needsSigning ? extractR2Key(avatarUrl) : null;
+  const requiresSigning = avatarUrl ? needsUrlSigning(avatarUrl) : false;
+  const storageKey = avatarUrl && requiresSigning ? extractStorageKey(avatarUrl) : null;
 
   const { data: signedUrlData } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key,
-      staleTime: 30 * 60 * 1000, // Cache for 30 minutes
+      enabled: !!storageKey,
+      staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
-  // Determine the URL to display
   const displayUrl = React.useMemo(() => {
     if (!avatarUrl) return undefined;
-    if (isSignedUrl(avatarUrl)) return avatarUrl;
+    if (!requiresSigning) return avatarUrl;
     if (signedUrlData?.url) return signedUrlData.url;
-    // If no R2 key found (external URL), use as-is
-    if (!r2Key) return avatarUrl;
+    if (!storageKey) return avatarUrl;
     return undefined;
-  }, [avatarUrl, signedUrlData?.url, r2Key]);
+  }, [avatarUrl, requiresSigning, signedUrlData?.url, storageKey]);
 
   return (
     <Avatar className={className} key={displayUrl ?? "no-avatar"}>

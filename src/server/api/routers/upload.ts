@@ -6,17 +6,40 @@ import {
   activeUserProcedure,
 } from "~/server/api/trpc";
 import { presignedUrlSchema } from "~/lib/validators";
-import { getPresignedUploadUrl, getPresignedDownloadUrl, isR2Configured } from "~/lib/r2";
+import {
+  isStorageConfigured,
+  getStorageProvider,
+  getBlobPathPrefix,
+  getPresignedUploadUrl,
+  getPresignedDownloadUrl,
+} from "~/lib/storage";
 
 export const uploadRouter = createTRPCRouter({
+  storageInfo: protectedProcedure.query(({ ctx }) => {
+    return {
+      provider: getStorageProvider(),
+      configured: isStorageConfigured(),
+      blobPathPrefix: getBlobPathPrefix(),
+      userId: ctx.session.user.id,
+    };
+  }),
+
   getUploadUrl: activeUserProcedure
     .input(presignedUrlSchema)
     .mutation(async ({ ctx, input }) => {
-      // Check if R2 is configured
-      if (!isR2Configured()) {
+      if (!isStorageConfigured()) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: "File uploads are not configured. Please set up R2 storage credentials (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME) in your environment variables.",
+          message:
+            "File uploads are not configured. Set up either Cloudflare R2 credentials (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME) or Vercel Blob (BLOB_READ_WRITE_TOKEN) in your environment variables.",
+        });
+      }
+
+      if (getStorageProvider() === "vercel-blob") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Presigned URLs are not used with Vercel Blob storage. Use the /api/upload/blob endpoint instead.",
         });
       }
 
@@ -40,10 +63,10 @@ export const uploadRouter = createTRPCRouter({
   getDownloadUrl: protectedProcedure
     .input(z.object({ key: z.string() }))
     .query(async ({ input }) => {
-      if (!isR2Configured()) {
+      if (!isStorageConfigured()) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: "File downloads are not configured. Please set up R2 storage credentials.",
+          message: "File storage is not configured. Please set up storage credentials.",
         });
       }
 

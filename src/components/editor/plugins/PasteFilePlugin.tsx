@@ -10,44 +10,22 @@ import {
   PASTE_COMMAND,
 } from "lexical";
 import { $createAttachmentNode, type AttachmentType } from "../nodes/AttachmentNode";
-import { api } from "~/lib/trpc/client";
+import { useUpload } from "~/lib/hooks/use-upload";
 
 /**
  * Plugin that handles pasting files (images, videos, other files) from clipboard.
- * When a file is pasted, it's uploaded to R2 and inserted as an attachment node.
+ * When a file is pasted, it's uploaded and inserted as an attachment node.
  */
 export function PasteFilePlugin() {
   const [editor] = useLexicalComposerContext();
-  const uploadMutation = api.upload.getUploadUrl.useMutation();
+  const { uploadFile } = useUpload();
 
   const uploadAndInsertFiles = useCallback(
     async (files: File[]) => {
       for (const file of files) {
         try {
-          // Generate filename for clipboard items that don't have one
-          let filename = file.name;
-          if (!filename || filename === "image.png" || filename === "blob") {
-            const extension = file.type.split("/")[1] || "bin";
-            const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-            filename = `pasted-${timestamp}.${extension}`;
-          }
+          const { url } = await uploadFile(file);
 
-          const result = await uploadMutation.mutateAsync({
-            filename,
-            contentType: file.type,
-            size: file.size,
-          });
-
-          // Upload to R2
-          await fetch(result.uploadUrl, {
-            method: "PUT",
-            body: file,
-            headers: {
-              "Content-Type": file.type,
-            },
-          });
-
-          // Determine attachment type
           let attachmentType: AttachmentType = "FILE";
           if (file.type.startsWith("image/")) {
             attachmentType = "IMAGE";
@@ -55,14 +33,13 @@ export function PasteFilePlugin() {
             attachmentType = "VIDEO";
           }
 
-          // Insert attachment node
           editor.update(() => {
             const selection = $getSelection();
             if ($isRangeSelection(selection)) {
               const attachmentNode = $createAttachmentNode({
                 attachmentType,
-                url: result.publicUrl,
-                filename,
+                url,
+                filename: file.name,
                 mimeType: file.type,
                 size: file.size,
               });
@@ -74,7 +51,7 @@ export function PasteFilePlugin() {
         }
       }
     },
-    [editor, uploadMutation]
+    [editor, uploadFile]
   );
 
   useEffect(() => {

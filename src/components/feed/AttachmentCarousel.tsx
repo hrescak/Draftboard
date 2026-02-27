@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Play, FileIcon, Image as ImageIcon, Loader2 } from "lucide-react";
 import { api } from "~/lib/trpc/client";
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
 import { Lightbox, type LightboxMedia } from "~/components/ui/lightbox";
 
 interface Attachment {
@@ -18,12 +19,6 @@ interface AttachmentCarouselProps {
   attachments: Attachment[];
   postId: string;
   totalCount: number;
-}
-
-// Extract R2 key from URL
-function extractR2Key(url: string): string | null {
-  const match = url.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
 }
 
 function getAttachmentIcon(type: string) {
@@ -49,17 +44,18 @@ function getAttachmentIcon(type: string) {
 }
 
 function SignedImage({ url, filename, className }: { url: string; filename: string; className?: string }) {
-  const r2Key = extractR2Key(url);
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = needsUrlSigning(url);
   const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key,
+      enabled: requiresSigning && !!storageKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
-  if (isLoading) {
+  if (requiresSigning && isLoading && storageKey) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-muted">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -69,7 +65,7 @@ function SignedImage({ url, filename, className }: { url: string; filename: stri
 
   return (
     <img
-      src={signedUrlData?.url || url}
+      src={requiresSigning && signedUrlData?.url ? signedUrlData.url : url}
       alt={filename}
       className={className}
     />
@@ -77,17 +73,18 @@ function SignedImage({ url, filename, className }: { url: string; filename: stri
 }
 
 function SignedVideoThumbnail({ url, className }: { url: string; className?: string }) {
-  const r2Key = extractR2Key(url);
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = needsUrlSigning(url);
   const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key,
+      enabled: requiresSigning && !!storageKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
-  if (isLoading) {
+  if (requiresSigning && isLoading && storageKey) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-muted">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -95,7 +92,7 @@ function SignedVideoThumbnail({ url, className }: { url: string; className?: str
     );
   }
 
-  const videoSrc = signedUrlData?.url || url;
+  const videoSrc = requiresSigning && signedUrlData?.url ? signedUrlData.url : url;
 
   return (
     <video

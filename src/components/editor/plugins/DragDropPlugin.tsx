@@ -11,11 +11,11 @@ import {
   DRAGOVER_COMMAND,
 } from "lexical";
 import { $createAttachmentNode, type AttachmentType } from "../nodes/AttachmentNode";
-import { api } from "~/lib/trpc/client";
+import { useUpload } from "~/lib/hooks/use-upload";
 
 export function DragDropPlugin() {
   const [editor] = useLexicalComposerContext();
-  const uploadMutation = api.upload.getUploadUrl.useMutation();
+  const { uploadFile } = useUpload();
 
   const handleDrop = useCallback(
     async (event: DragEvent) => {
@@ -26,22 +26,8 @@ export function DragDropPlugin() {
 
       for (const file of Array.from(files)) {
         try {
-          const result = await uploadMutation.mutateAsync({
-            filename: file.name,
-            contentType: file.type,
-            size: file.size,
-          });
+          const { url } = await uploadFile(file);
 
-          // Upload to R2
-          await fetch(result.uploadUrl, {
-            method: "PUT",
-            body: file,
-            headers: {
-              "Content-Type": file.type,
-            },
-          });
-
-          // Determine attachment type
           let attachmentType: AttachmentType = "FILE";
           if (file.type.startsWith("image/")) {
             attachmentType = "IMAGE";
@@ -49,13 +35,12 @@ export function DragDropPlugin() {
             attachmentType = "VIDEO";
           }
 
-          // Insert attachment node
           editor.update(() => {
             const selection = $getSelection();
             if ($isRangeSelection(selection)) {
               const attachmentNode = $createAttachmentNode({
                 attachmentType,
-                url: result.publicUrl,
+                url,
                 filename: file.name,
                 mimeType: file.type,
                 size: file.size,
@@ -70,7 +55,7 @@ export function DragDropPlugin() {
 
       return true;
     },
-    [editor, uploadMutation]
+    [editor, uploadFile]
   );
 
   useEffect(() => {

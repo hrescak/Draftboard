@@ -8,36 +8,25 @@ import { Card, CardHeader } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Plus, FolderOpen, Loader2 } from "lucide-react";
 import { formatRelativeTime, pluralize } from "~/lib/utils";
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
 import { StickyPageHeader } from "~/components/layout/sticky-page-header";
 
-// Extract R2 key from URL
-function extractR2Key(url: string): string | null {
-  const urlWithoutParams = url.split('?')[0];
-  const match = urlWithoutParams?.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
-}
-
-// Check if URL is already a signed URL
-function isSignedUrl(url: string): boolean {
-  return url.includes('X-Amz-') || url.includes('x-amz-');
-}
-
 function SignedCoverImage({ url, name }: { url: string; name: string }) {
-  const alreadySigned = isSignedUrl(url);
-  const r2Key = !alreadySigned ? extractR2Key(url) : null;
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = needsUrlSigning(url);
 
   const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key && !alreadySigned,
+      enabled: requiresSigning && !!storageKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
-  const displayUrl = alreadySigned ? url : (signedUrlData?.url || url);
+  const displayUrl = requiresSigning && signedUrlData?.url ? signedUrlData.url : url;
 
-  if (!alreadySigned && isLoading && r2Key) {
+  if (requiresSigning && isLoading && storageKey) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-muted">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

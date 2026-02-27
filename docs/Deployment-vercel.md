@@ -27,12 +27,42 @@ postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
 postgresql://[USER]:[PASSWORD]@[HOST].neon.tech/[DBNAME]?sslmode=require
 ```
 
-### 2. Object Storage (Cloudflare R2 or AWS S3)
+### 2. Object Storage
 
-File and image uploads require S3-compatible object storage. Supported providers:
+File and image uploads require an object storage backend. Draftboard supports two options — choose one:
 
-- **[Cloudflare R2](https://developers.cloudflare.com/r2/)** (recommended) — no egress fees, S3-compatible API.
-- **[AWS S3](https://aws.amazon.com/s3/)** — the original, works out of the box.
+- **[Vercel Blob](https://vercel.com/docs/storage/vercel-blob)** (simpler) — zero-config, built-in to Vercel, no CORS setup needed.
+- **[Cloudflare R2](https://developers.cloudflare.com/r2/)** / **[AWS S3](https://aws.amazon.com/s3/)** — S3-compatible object storage.
+
+If both are configured, Vercel Blob takes priority.
+
+<details>
+<summary><strong>Option A: Vercel Blob (simpler)</strong></summary>
+
+1. In your Vercel project dashboard, go to **Storage > Create > Blob**.
+2. Follow the prompts to create a new Blob store and connect it to your project.
+3. Vercel will automatically add the `BLOB_READ_WRITE_TOKEN` environment variable to your project.
+
+That's it — no CORS configuration, no bucket setup, no API tokens to manage.
+
+If you're setting up manually (e.g. for local development), copy the read-write token from **Storage > your store > Settings** and add it to your `.env`:
+
+```
+BLOB_READ_WRITE_TOKEN=vercel_blob_rw_xxxxxxxxxxxxx
+```
+
+Optionally, set `BLOB_PATH_PREFIX` to organize uploads under a specific folder in your Blob store (useful if you share a store across projects):
+
+```
+BLOB_PATH_PREFIX=draftboard
+```
+
+Files will be stored as `{prefix}/uploads/{userId}/{timestamp}-{filename}`. If omitted, files go under `uploads/...` directly.
+
+</details>
+
+<details>
+<summary><strong>Option B: Cloudflare R2 / AWS S3</strong></summary>
 
 You'll need the following credentials from your storage provider:
 
@@ -81,6 +111,8 @@ You'll need the following credentials from your storage provider:
 ```
 
 > **Note:** If you're also using a Preview/Development environment, add those URLs to `AllowedOrigins` as well (e.g. `https://your-app-git-*.vercel.app` or `http://localhost:3000`).
+
+</details>
 
 ### 3. Authentication Provider
 
@@ -281,7 +313,16 @@ No additional variables needed.
 
 </details>
 
-#### Storage (Cloudflare R2 / AWS S3)
+#### Storage (choose one)
+
+**Vercel Blob (simpler):**
+
+| Variable | Value |
+|---|---|
+| `BLOB_READ_WRITE_TOKEN` | Auto-added when you create a Blob store in the Vercel dashboard |
+| `BLOB_PATH_PREFIX` | *(optional)* Folder prefix for uploads, e.g. `draftboard` |
+
+**Cloudflare R2 / AWS S3:**
 
 | Variable | Value |
 |---|---|
@@ -291,6 +332,7 @@ No additional variables needed.
 | `R2_BUCKET_NAME` | The name of your bucket |
 | `R2_PUBLIC_URL` | Public URL for the bucket, e.g. `https://<id>.r2.cloudflarestorage.com` |
 
+> If both Vercel Blob and R2 variables are set, Vercel Blob takes priority.
 > Make sure all environment variables are set for the **Production** environment (and optionally Preview/Development).
 
 ### 3. Configure Build Settings

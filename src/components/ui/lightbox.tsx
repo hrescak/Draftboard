@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "./button";
 import { api } from "~/lib/trpc/client";
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
 
 export interface LightboxMedia {
   id: string;
@@ -21,38 +22,22 @@ interface LightboxProps {
   onClose: () => void;
 }
 
-// Extract R2 key from URL - handles both signed and unsigned URLs
-function extractR2Key(url: string): string | null {
-  // Remove query parameters first (signed URLs have ?X-Amz... parameters)
-  const urlWithoutParams = url.split('?')[0];
-  // Match the uploads path pattern
-  const match = urlWithoutParams?.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
-}
-
-// Check if URL is already a signed URL (has query parameters typical of signed URLs)
-function isSignedUrl(url: string): boolean {
-  return url.includes('X-Amz-') || url.includes('x-amz-');
-}
-
 function SignedLightboxMedia({ url, filename, type = "image" }: { url: string; filename: string; type?: "image" | "video" }) {
-  // If the URL is already signed, use it directly
-  const alreadySigned = isSignedUrl(url);
-  const r2Key = !alreadySigned ? extractR2Key(url) : null;
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = needsUrlSigning(url);
 
   const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key && !alreadySigned,
+      enabled: requiresSigning && !!storageKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
-  // Use already signed URL directly, or wait for the signed URL query
-  const displayUrl = alreadySigned ? url : (signedUrlData?.url || url);
+  const displayUrl = requiresSigning && signedUrlData?.url ? signedUrlData.url : url;
 
-  if (!alreadySigned && isLoading && r2Key) {
+  if (requiresSigning && isLoading && storageKey) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-white/50" />

@@ -28,7 +28,7 @@ import { $createAttachmentNode, type AttachmentType } from "../nodes/AttachmentN
 import { $setBlocksType } from "@lexical/selection";
 import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text";
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from "@lexical/list";
-import { api } from "~/lib/trpc/client";
+import { useUpload } from "~/lib/hooks/use-upload";
 import { cn } from "~/lib/utils";
 
 interface FloatingAddButtonPluginProps {
@@ -43,7 +43,7 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
   const [isEmpty, setIsEmpty] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadMutation = api.upload.getUploadUrl.useMutation();
+  const { uploadFile } = useUpload();
 
   const updatePosition = useCallback(() => {
     editor.getEditorState().read(() => {
@@ -112,29 +112,8 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
     async (file: File) => {
       setIsMenuOpen(false);
       try {
-        const result = await uploadMutation.mutateAsync({
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-        });
+        const { url } = await uploadFile(file);
 
-        // Upload to R2
-        const uploadResponse = await fetch(result.uploadUrl, {
-          method: "PUT",
-          body: file,
-          headers: {
-            "Content-Type": file.type,
-          },
-        });
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error("R2 upload failed:", uploadResponse.status, errorText);
-          alert(`Upload failed: ${uploadResponse.status} - Check CORS configuration on R2 bucket`);
-          return;
-        }
-
-        // Determine attachment type
         let attachmentType: AttachmentType = "FILE";
         if (file.type.startsWith("image/")) {
           attachmentType = "IMAGE";
@@ -142,13 +121,12 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
           attachmentType = "VIDEO";
         }
 
-        // Insert attachment node
         editor.update(() => {
           const selection = $getSelection();
           if ($isRangeSelection(selection)) {
             const attachmentNode = $createAttachmentNode({
               attachmentType,
-              url: result.publicUrl,
+              url,
               filename: file.name,
               mimeType: file.type,
               size: file.size,
@@ -162,7 +140,7 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
         alert(`Upload failed: ${message}`);
       }
     },
-    [editor, uploadMutation]
+    [editor, uploadFile]
   );
 
   const triggerFileInput = (accept: string) => {

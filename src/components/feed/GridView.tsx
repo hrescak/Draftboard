@@ -4,6 +4,7 @@ import Link from "next/link";
 import Masonry from "react-masonry-css";
 import { Play, Image as ImageIcon, Loader2 } from "lucide-react";
 import { api } from "~/lib/trpc/client";
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
 
 const masonryBreakpoints = {
   default: 5,
@@ -28,24 +29,19 @@ interface GridViewProps {
   posts: Post[];
 }
 
-// Extract R2 key from URL
-function extractR2Key(url: string): string | null {
-  const match = url.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
-}
-
 function SignedImage({ url, alt, className }: { url: string; alt: string; className?: string }) {
-  const r2Key = extractR2Key(url);
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = needsUrlSigning(url);
   const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key,
+      enabled: requiresSigning && !!storageKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
-  if (isLoading) {
+  if (requiresSigning && isLoading && storageKey) {
     return (
       <div className="flex h-48 w-full items-center justify-center bg-muted">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -55,7 +51,7 @@ function SignedImage({ url, alt, className }: { url: string; alt: string; classN
 
   return (
     <img
-      src={signedUrlData?.url || url}
+      src={requiresSigning && signedUrlData?.url ? signedUrlData.url : url}
       alt={alt}
       className={className}
     />
@@ -63,17 +59,18 @@ function SignedImage({ url, alt, className }: { url: string; alt: string; classN
 }
 
 function SignedVideoThumbnail({ url, className }: { url: string; className?: string }) {
-  const r2Key = extractR2Key(url);
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = needsUrlSigning(url);
   const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key,
+      enabled: requiresSigning && !!storageKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
-  if (isLoading) {
+  if (requiresSigning && isLoading && storageKey) {
     return (
       <div className="flex h-48 w-full items-center justify-center bg-muted">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -81,7 +78,7 @@ function SignedVideoThumbnail({ url, className }: { url: string; className?: str
     );
   }
 
-  const videoSrc = signedUrlData?.url || url;
+  const videoSrc = requiresSigning && signedUrlData?.url ? signedUrlData.url : url;
 
   return (
     <video
