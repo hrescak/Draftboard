@@ -118,8 +118,8 @@ export default function AdminSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SiteNameForm 
-            currentName={settings?.siteName || "Draftboard"} 
+          <SiteNameForm
+            currentName={settings?.siteName || "Draftboard"}
             onSave={(siteName) => updateMutation.mutate({ siteName })}
             isPending={updateMutation.isPending}
           />
