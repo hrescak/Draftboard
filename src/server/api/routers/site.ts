@@ -109,6 +109,32 @@ export const siteRouter = createTRPCRouter({
       return settings;
     }),
 
+  // Admin: Update Google allowed domains
+  updateGoogleAllowedDomains: adminProcedure
+    .input(
+      z.object({
+        domains: z.string().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Normalize: trim whitespace, lowercase, remove empty entries
+      const normalized = input.domains
+        ? input.domains
+            .split(",")
+            .map((d) => d.trim().toLowerCase())
+            .filter((d) => d.length > 0)
+            .join(",")
+        : null;
+
+      const settings = await ctx.db.siteSettings.upsert({
+        where: { id: "default" },
+        update: { googleAllowedDomains: normalized || null },
+        create: { id: "default", googleAllowedDomains: normalized || null },
+      });
+
+      return settings;
+    }),
+
   // Admin: Test webhook - sends a test message
   testWebhook: adminProcedure
     .input(

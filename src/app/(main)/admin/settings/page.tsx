@@ -23,6 +23,7 @@ export default function AdminSettingsPage() {
   const { data: authModeData } = api.user.authMode.useQuery();
 
   const isCredentialsAuth = authModeData?.mode === "credentials";
+  const isGoogleAuth = authModeData?.mode === "google";
 
   const regenerateMutation = api.site.regenerateInvite.useMutation({
     onSuccess: () => {
@@ -56,6 +57,23 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-6">
+      {isGoogleAuth && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Google Domain Allowlist</CardTitle>
+            <CardDescription>
+              Restrict which email domains can sign in with Google. When enabled,
+              only users with email addresses from the listed domains will be
+              allowed to sign in. When disabled, anyone with a Google account can
+              sign in.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GoogleDomainAllowlist />
+          </CardContent>
+        </Card>
+      )}
+
       {isCredentialsAuth && (
         <Card>
           <CardHeader>
@@ -176,6 +194,172 @@ function SiteNameForm({
         Save Changes
       </Button>
     </form>
+  );
+}
+
+function GoogleDomainAllowlist() {
+  const { data: settings } = api.site.getSettings.useQuery();
+  const utils = api.useUtils();
+
+  const currentDomains = settings?.googleAllowedDomains ?? "";
+  const isEnabled = currentDomains.length > 0;
+  const domainList = isEnabled
+    ? currentDomains.split(",").map((d) => d.trim())
+    : [];
+
+  const [enabled, setEnabled] = useState(false);
+  const [domains, setDomains] = useState<string[]>([]);
+  const [newDomain, setNewDomain] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Sync state when settings load
+  useEffect(() => {
+    if (settings) {
+      const current = settings.googleAllowedDomains ?? "";
+      const on = current.length > 0;
+      setEnabled(on);
+      setDomains(on ? current.split(",").map((d) => d.trim()) : []);
+    }
+  }, [settings]);
+
+  const updateMutation = api.site.updateGoogleAllowedDomains.useMutation({
+    onSuccess: () => {
+      utils.site.getSettings.invalidate();
+      setError(null);
+    },
+  });
+
+  const handleToggle = () => {
+    if (enabled) {
+      // Turning off: clear all domains
+      setEnabled(false);
+      setDomains([]);
+      updateMutation.mutate({ domains: null });
+    } else {
+      setEnabled(true);
+    }
+  };
+
+  const addDomain = () => {
+    const domain = newDomain.trim().toLowerCase();
+    if (!domain) return;
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(domain)) {
+      setError("Please enter a valid domain (e.g. example.com)");
+      return;
+    }
+    if (domains.includes(domain)) {
+      setError("This domain is already in the list");
+      return;
+    }
+    const updated = [...domains, domain];
+    setDomains(updated);
+    setNewDomain("");
+    setError(null);
+    updateMutation.mutate({ domains: updated.join(",") });
+  };
+
+  const removeDomain = (domain: string) => {
+    const updated = domains.filter((d) => d !== domain);
+    setDomains(updated);
+    if (updated.length === 0) {
+      setEnabled(false);
+      updateMutation.mutate({ domains: null });
+    } else {
+      updateMutation.mutate({ domains: updated.join(",") });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          onClick={handleToggle}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+            enabled ? "bg-primary" : "bg-input"
+          }`}
+        >
+          <span
+            className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <Label>
+          {enabled ? "Domain restriction enabled" : "Domain restriction disabled"}
+        </Label>
+      </div>
+
+      {enabled && (
+        <div className="space-y-3">
+          {domains.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {domains.map((domain) => (
+                <div
+                  key={domain}
+                  className="group flex items-center gap-1.5 rounded-md border bg-muted/50 px-2.5 py-1"
+                >
+                  <span className="text-sm">{domain}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeDomain(domain)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    disabled={updateMutation.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Input
+              value={newDomain}
+              onChange={(e) => setNewDomain(e.target.value)}
+              placeholder="example.com"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addDomain();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addDomain}
+              disabled={!newDomain.trim() || updateMutation.isPending}
+            >
+              {updateMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Add
+            </Button>
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          {domains.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Add at least one domain to enable restriction. If no domains are
+              added, the restriction will be automatically disabled.
+            </p>
+          )}
+        </div>
+      )}
+
+      {!enabled && (
+        <p className="text-sm text-muted-foreground">
+          Anyone with a Google account can currently sign in. Enable domain
+          restriction to limit sign-ins to specific email domains.
+        </p>
+      )}
+    </div>
   );
 }
 
