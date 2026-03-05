@@ -30,6 +30,20 @@ function getEdgeProviders(): NextAuthConfig["providers"] {
         Google({
           clientId: process.env.AUTH_GOOGLE_CLIENT_ID,
           clientSecret: process.env.AUTH_GOOGLE_CLIENT_SECRET,
+          authorization: {
+            params: {
+              // hd param pre-selects the Google Workspace domain in the consent screen.
+              // When multiple domains are configured, omit hd to avoid
+              // restricting the consent screen to a single domain.
+              ...(() => {
+                const raw = process.env.AUTH_GOOGLE_ALLOWED_DOMAIN;
+                if (!raw) return {};
+                const domains = raw.split(",").map((d) => d.trim()).filter(Boolean);
+                if (domains.length === 1) return { hd: domains[0] };
+                return {};
+              })(),
+            },
+          },
         }),
       ];
     default:

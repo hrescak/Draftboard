@@ -123,7 +123,7 @@ Set these variables to enable Google:
 |---|---|
 | `AUTH_GOOGLE_CLIENT_ID` | OAuth client ID from Google Cloud Console |
 | `AUTH_GOOGLE_CLIENT_SECRET` | OAuth client secret from Google Cloud Console |
-| `AUTH_GOOGLE_ALLOWED_DOMAIN` | *(optional)* Restrict sign-in to a specific domain (e.g. `yourcompany.com`) |
+| `AUTH_GOOGLE_ALLOWED_DOMAIN` | *(optional)* Restrict sign-in to specific domain(s). Comma-separate for multiple (e.g. `yourcompany.com,othercompany.com`) |
 
 Users sign in with their Google account and are auto-provisioned on first login. See the [deployment guide](docs/Deployment-vercel.md) for full Google Workspace setup instructions.
 

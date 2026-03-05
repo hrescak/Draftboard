@@ -242,7 +242,7 @@ AUTH_GOOGLE_CLIENT_SECRET=GOCSPX-your-google-client-secret
 AUTH_GOOGLE_ALLOWED_DOMAIN=yourcompany.com
 ```
 
-The `AUTH_GOOGLE_ALLOWED_DOMAIN` variable is **optional but recommended**. When set, only Google accounts from that domain can sign in. This is enforced both in the Google consent screen (via the `hd` parameter) and server-side in the sign-in callback.
+The `AUTH_GOOGLE_ALLOWED_DOMAIN` variable is **optional but recommended**. When set, only Google accounts from the specified domain(s) can sign in. You can allow multiple domains by comma-separating them (e.g. `yourcompany.com,othercompany.com`). For a single domain, the Google consent screen is also restricted via the `hd` parameter; for multiple domains, domain restriction is enforced server-side only.
 
 > If you chose **Internal** in the consent screen, the domain is already restricted by Google. The `AUTH_GOOGLE_ALLOWED_DOMAIN` variable provides an additional server-side check.
 
@@ -305,7 +305,7 @@ In your Vercel project, go to **Settings > Environment Variables** and add the f
 |---|---|
 | `AUTH_GOOGLE_CLIENT_ID` | Your Google OAuth client ID |
 | `AUTH_GOOGLE_CLIENT_SECRET` | Your Google OAuth client secret |
-| `AUTH_GOOGLE_ALLOWED_DOMAIN` | *(optional)* e.g. `yourcompany.com` |
+| `AUTH_GOOGLE_ALLOWED_DOMAIN` | *(optional)* e.g. `yourcompany.com` or `a.com,b.com` |
 
 **Credentials (default):**
 

@@ -89,20 +89,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email) return false;
 
         // Server-side domain restriction for Google Workspace
-        if (account.provider === "google") {
-          const settings = await db.siteSettings.findUnique({
-            where: { id: "default" },
-            select: { googleAllowedDomains: true },
-          });
-
-          if (settings?.googleAllowedDomains) {
-            const allowedDomains = settings.googleAllowedDomains
-              .split(",")
-              .map((d) => d.trim().toLowerCase());
-            const domain = email.split("@")[1]?.toLowerCase();
-            if (!domain || !allowedDomains.includes(domain)) {
-              return "/sign-in?error=domain_not_allowed";
-            }
+        if (
+          account.provider === "google" &&
+          process.env.AUTH_GOOGLE_ALLOWED_DOMAIN
+        ) {
+          const allowedDomains = process.env.AUTH_GOOGLE_ALLOWED_DOMAIN
+            .split(",")
+            .map((d) => d.trim().toLowerCase())
+            .filter(Boolean);
+          const domain = email.split("@")[1]?.toLowerCase();
+          if (!domain || !allowedDomains.includes(domain)) {
+            return "/sign-in?error=domain_not_allowed";
           }
         }
 
