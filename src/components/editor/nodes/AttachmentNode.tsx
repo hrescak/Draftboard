@@ -254,6 +254,7 @@ function AttachmentComponent({
                   src={displayUrl || url}
                   className="max-w-full rounded-lg pointer-events-none"
                   muted
+                  playsInline
                   preload="metadata"
                 >
                   <track kind="captions" />
