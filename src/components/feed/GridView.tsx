@@ -85,6 +85,7 @@ function SignedVideoThumbnail({ url, className }: { url: string; className?: str
       src={`${videoSrc}#t=0.001`}
       className={className}
       muted
+      playsInline
       preload="metadata"
     >
       <track kind="captions" />

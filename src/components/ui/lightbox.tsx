@@ -51,6 +51,8 @@ function SignedLightboxMedia({ url, filename, type = "image" }: { url: string; f
         src={displayUrl}
         controls
         autoPlay
+        muted
+        playsInline
         className="max-h-[90vh] max-w-[90vw] object-contain"
         onClick={(e) => e.stopPropagation()}
       >
