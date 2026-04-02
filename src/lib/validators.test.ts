@@ -250,11 +250,11 @@ describe("presignedUrlSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("should reject files over 100MB", () => {
+  it("should reject files over 1GB", () => {
     const result = presignedUrlSchema.safeParse({
       filename: "large-file.zip",
       contentType: "application/zip",
-      size: 150 * 1024 * 1024, // 150MB
+      size: 2 * 1024 * 1024 * 1024, // 2GB
     });
     expect(result.success).toBe(false);
   });

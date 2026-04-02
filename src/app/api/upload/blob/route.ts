@@ -30,7 +30,7 @@ export async function POST(request: Request): Promise<NextResponse> {
             "application/zip",
             "text/plain",
           ],
-          maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
+          maximumSizeInBytes: 1024 * 1024 * 1024, // 1GB
           tokenPayload: JSON.stringify({ userId: session.user.id }),
         };
       },

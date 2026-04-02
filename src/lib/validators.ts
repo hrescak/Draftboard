@@ -106,7 +106,7 @@ export const paginationSchema = z.object({
 export const presignedUrlSchema = z.object({
   filename: z.string(),
   contentType: z.string(),
-  size: z.number().max(100 * 1024 * 1024), // 100MB max
+  size: z.number().max(1024 * 1024 * 1024), // 1GB max
 });
 
 // Custom emoji
