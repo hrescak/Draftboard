@@ -29,8 +29,8 @@ import {
   ImagePlus,
   FileUp,
 } from "lucide-react";
-import { $createAttachmentNode, type AttachmentType } from "../nodes/AttachmentNode";
-import { useUpload } from "~/lib/hooks/use-upload";
+import { $createUploadPlaceholderNode } from "../nodes/UploadPlaceholderNode";
+import { generateUploadId, registerPendingUpload } from "~/lib/upload-store";
 import { cn } from "~/lib/utils";
 
 interface CommandOption {
@@ -43,10 +43,10 @@ interface CommandOption {
 
 const COMMANDS: CommandOption[] = [
   {
-    name: "Image",
-    command: "image",
+    name: "Media",
+    command: "media",
     icon: <ImagePlus className="h-4 w-4" />,
-    description: "Upload an image",
+    description: "Upload images or videos",
     section: "media",
   },
   {
@@ -106,7 +106,6 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { uploadFile } = useUpload();
   const pendingCommandRef = useRef<string | null>(null);
 
   const filteredCommands = useMemo(() => {
@@ -116,7 +115,10 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
       (cmd) =>
         cmd.name.toLowerCase().includes(lowerQuery) ||
         cmd.description?.toLowerCase().includes(lowerQuery) ||
-        cmd.command.toLowerCase().includes(lowerQuery)
+        cmd.command.toLowerCase().includes(lowerQuery) ||
+        // Allow "image" to match "media" for discoverability
+        (cmd.command === "media" && "image".includes(lowerQuery)) ||
+        (cmd.command === "media" && "video".includes(lowerQuery))
     );
   }, [query]);
 
@@ -125,37 +127,25 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
     setSelectedIndex(0);
   }, [filteredCommands.length]);
 
-  const handleFileUpload = useCallback(
-    async (file: File) => {
-      try {
-        const { url } = await uploadFile(file);
+  const insertUploadPlaceholder = useCallback(
+    (file: File) => {
+      const uploadId = generateUploadId();
+      registerPendingUpload(uploadId, file);
 
-        let attachmentType: AttachmentType = "FILE";
-        if (file.type.startsWith("image/")) {
-          attachmentType = "IMAGE";
-        } else if (file.type.startsWith("video/")) {
-          attachmentType = "VIDEO";
+      editor.update(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          const placeholderNode = $createUploadPlaceholderNode({
+            uploadId,
+            filename: file.name,
+            fileSize: file.size,
+            mimeType: file.type,
+          });
+          selection.insertNodes([placeholderNode, $createParagraphNode()]);
         }
-
-        editor.update(() => {
-          const selection = $getSelection();
-          if ($isRangeSelection(selection)) {
-            const attachmentNode = $createAttachmentNode({
-              attachmentType,
-              url,
-              filename: file.name,
-              mimeType: file.type,
-              size: file.size,
-            });
-            selection.insertNodes([attachmentNode, $createParagraphNode()]);
-          }
-        });
-      } catch (error) {
-        console.error("Upload failed:", error);
-        alert(`Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-      }
+      });
     },
-    [editor, uploadFile]
+    [editor]
   );
 
   const executeCommand = useCallback(
@@ -200,12 +190,12 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
           case "quote":
             $setBlocksType(selection, () => $createQuoteNode());
             break;
-          case "image":
+          case "media":
           case "file":
             pendingCommandRef.current = command;
             setTimeout(() => {
               if (fileInputRef.current) {
-                fileInputRef.current.accept = command === "image" ? "image/*,video/*" : "*/*";
+                fileInputRef.current.accept = command === "media" ? "image/*,video/*" : "*/*";
                 fileInputRef.current.click();
               }
             }, 0);
@@ -371,7 +361,7 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
-            handleFileUpload(file);
+            insertUploadPlaceholder(file);
           }
           e.target.value = "";
           pendingCommandRef.current = null;
@@ -389,7 +379,7 @@ export function SlashCommandPlugin({ anchorElem }: SlashCommandPluginProps) {
           {filteredCommands.map((option, index) => {
             const prevOption = filteredCommands[index - 1];
             const showDivider = prevOption && prevOption.section === "media" && option.section === "blocks";
-            
+
             return (
               <div key={option.command}>
                 {showDivider && <div className="my-1 h-px bg-border" />}

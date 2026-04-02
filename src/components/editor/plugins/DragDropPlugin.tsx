@@ -10,52 +10,40 @@ import {
   DROP_COMMAND,
   DRAGOVER_COMMAND,
 } from "lexical";
-import { $createAttachmentNode, type AttachmentType } from "../nodes/AttachmentNode";
-import { useUpload } from "~/lib/hooks/use-upload";
+import { $createUploadPlaceholderNode } from "../nodes/UploadPlaceholderNode";
+import { generateUploadId, registerPendingUpload } from "~/lib/upload-store";
 
 export function DragDropPlugin() {
   const [editor] = useLexicalComposerContext();
-  const { uploadFile } = useUpload();
 
   const handleDrop = useCallback(
-    async (event: DragEvent) => {
+    (event: DragEvent) => {
       const files = event.dataTransfer?.files;
       if (!files || files.length === 0) return false;
 
       event.preventDefault();
 
       for (const file of Array.from(files)) {
-        try {
-          const { url } = await uploadFile(file);
+        const uploadId = generateUploadId();
+        registerPendingUpload(uploadId, file);
 
-          let attachmentType: AttachmentType = "FILE";
-          if (file.type.startsWith("image/")) {
-            attachmentType = "IMAGE";
-          } else if (file.type.startsWith("video/")) {
-            attachmentType = "VIDEO";
+        editor.update(() => {
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            const placeholderNode = $createUploadPlaceholderNode({
+              uploadId,
+              filename: file.name,
+              fileSize: file.size,
+              mimeType: file.type,
+            });
+            selection.insertNodes([placeholderNode, $createParagraphNode()]);
           }
-
-          editor.update(() => {
-            const selection = $getSelection();
-            if ($isRangeSelection(selection)) {
-              const attachmentNode = $createAttachmentNode({
-                attachmentType,
-                url,
-                filename: file.name,
-                mimeType: file.type,
-                size: file.size,
-              });
-              selection.insertNodes([attachmentNode, $createParagraphNode()]);
-            }
-          });
-        } catch (error) {
-          console.error("Upload failed:", error);
-        }
+        });
       }
 
       return true;
     },
-    [editor, uploadFile]
+    [editor]
   );
 
   useEffect(() => {

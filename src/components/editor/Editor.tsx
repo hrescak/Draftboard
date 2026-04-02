@@ -24,6 +24,7 @@ import { MentionNode } from "./nodes/MentionNode";
 import { EmojiNode } from "./nodes/EmojiNode";
 import { ImageNode } from "./nodes/ImageNode";
 import { AttachmentNode } from "./nodes/AttachmentNode";
+import { UploadPlaceholderNode } from "./nodes/UploadPlaceholderNode";
 import { MentionPlugin } from "./plugins/MentionPlugin";
 import { EmojiPlugin } from "./plugins/EmojiPlugin";
 import { SlashCommandPlugin } from "./plugins/SlashCommandPlugin";
@@ -148,6 +149,7 @@ export function Editor({
       EmojiNode,
       ImageNode,
       AttachmentNode,
+      UploadPlaceholderNode,
     ],
     editorState: initialContent ? JSON.stringify(initialContent) : undefined,
     editable,
