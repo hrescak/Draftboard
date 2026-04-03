@@ -6,11 +6,7 @@ import {
   $getSelection,
   $isRangeSelection,
   $createParagraphNode,
-  $getNodeByKey,
   $isParagraphNode,
-  COMMAND_PRIORITY_LOW,
-  KEY_ARROW_DOWN_COMMAND,
-  KEY_ARROW_UP_COMMAND,
 } from "lexical";
 import { createPortal } from "react-dom";
 import {
@@ -22,13 +18,12 @@ import {
   List,
   ListOrdered,
   Quote,
-  X,
 } from "lucide-react";
-import { $createAttachmentNode, type AttachmentType } from "../nodes/AttachmentNode";
 import { $setBlocksType } from "@lexical/selection";
 import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text";
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from "@lexical/list";
-import { useUpload } from "~/lib/hooks/use-upload";
+import { $createUploadPlaceholderNode } from "../nodes/UploadPlaceholderNode";
+import { generateUploadId, registerPendingUpload } from "~/lib/upload-store";
 import { cn } from "~/lib/utils";
 
 interface FloatingAddButtonPluginProps {
@@ -43,7 +38,6 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
   const [isEmpty, setIsEmpty] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { uploadFile } = useUpload();
 
   const updatePosition = useCallback(() => {
     editor.getEditorState().read(() => {
@@ -94,6 +88,35 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
     });
   }, [editor, updatePosition]);
 
+  // Also reposition when DOM layout changes (e.g. upload placeholder aspect ratio loads)
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      updatePosition();
+    });
+    observer.observe(anchorElem);
+    // Observe all decorator nodes (placeholders, attachments) for size changes
+    const decorators = anchorElem.querySelectorAll(
+      ".editor-upload-placeholder, .editor-attachment"
+    );
+    decorators.forEach((el) => observer.observe(el));
+
+    // Also watch for new decorator nodes being added
+    const mutationObserver = new MutationObserver(() => {
+      // Re-observe any new decorator nodes
+      const newDecorators = anchorElem.querySelectorAll(
+        ".editor-upload-placeholder, .editor-attachment"
+      );
+      newDecorators.forEach((el) => observer.observe(el));
+      updatePosition();
+    });
+    mutationObserver.observe(anchorElem, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [anchorElem, updatePosition]);
+
   // Close menu when clicking outside
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -108,39 +131,26 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isMenuOpen]);
 
-  const handleFileUpload = useCallback(
-    async (file: File) => {
+  const insertUploadPlaceholder = useCallback(
+    (file: File) => {
       setIsMenuOpen(false);
-      try {
-        const { url } = await uploadFile(file);
+      const uploadId = generateUploadId();
+      registerPendingUpload(uploadId, file);
 
-        let attachmentType: AttachmentType = "FILE";
-        if (file.type.startsWith("image/")) {
-          attachmentType = "IMAGE";
-        } else if (file.type.startsWith("video/")) {
-          attachmentType = "VIDEO";
+      editor.update(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          const placeholderNode = $createUploadPlaceholderNode({
+            uploadId,
+            filename: file.name,
+            fileSize: file.size,
+            mimeType: file.type,
+          });
+          selection.insertNodes([placeholderNode, $createParagraphNode()]);
         }
-
-        editor.update(() => {
-          const selection = $getSelection();
-          if ($isRangeSelection(selection)) {
-            const attachmentNode = $createAttachmentNode({
-              attachmentType,
-              url,
-              filename: file.name,
-              mimeType: file.type,
-              size: file.size,
-            });
-            selection.insertNodes([attachmentNode, $createParagraphNode()]);
-          }
-        });
-      } catch (error) {
-        console.error("Upload failed:", error);
-        const message = error instanceof Error ? error.message : "Unknown error";
-        alert(`Upload failed: ${message}`);
-      }
+      });
     },
-    [editor, uploadFile]
+    [editor]
   );
 
   const triggerFileInput = (accept: string) => {
@@ -191,7 +201,7 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
-            handleFileUpload(file);
+            insertUploadPlaceholder(file);
           }
           e.target.value = "";
         }}
@@ -215,15 +225,15 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
             Add blocks
           </p>
           <button
-            onClick={() => triggerFileInput("image/*")}
+            onClick={() => triggerFileInput("image/*,video/*")}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
           >
             <div className="flex h-7 w-7 items-center justify-center rounded-md border bg-background">
               <ImagePlus className="h-4 w-4" />
             </div>
             <div className="text-left">
-              <p className="font-medium">Image</p>
-              <p className="text-xs text-muted-foreground">Upload an image</p>
+              <p className="font-medium">Media</p>
+              <p className="text-xs text-muted-foreground">Upload images or videos</p>
             </div>
           </button>
           <button

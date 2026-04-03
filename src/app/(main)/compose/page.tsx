@@ -19,6 +19,8 @@ export default function ComposePage() {
   const searchParams = useSearchParams();
   const draftId = searchParams.get("draft");
 
+  // mountId changes on every mount AND every reappear (Next.js re-runs effects when page is shown)
+  const [mountId, setMountId] = useState(0);
   const [editorData, setEditorData] = useState<PostEditorData>({
     title: "",
     content: null,
@@ -30,35 +32,66 @@ export default function ComposePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasScrolled, setHasScrolled] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(!draftId);
 
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isLoadedRef = useRef(false);
-  const isInitialRenderRef = useRef(true);
+  const pendingSaveRef = useRef<(() => void) | null>(null);
+  const suppressAutosaveRef = useRef(!!draftId);
   const currentDraftIdRef = useRef<string | null>(draftId);
-  // Stable key for Editor - only set once on mount to prevent remount after first save
-  const editorKeyRef = useRef<string>(draftId || "new");
 
-  // Load existing draft if draftId is provided
+  // This effect runs on mount AND on reappear (Next.js re-runs all effects when cached page becomes visible).
+  // It forces fresh state for the editor.
+  useEffect(() => {
+    setMountId((v) => v + 1);
+    setDraftLoaded(!draftId);
+    setLastSaved(null);
+    setIsSaving(false);
+    suppressAutosaveRef.current = !!draftId;
+    currentDraftIdRef.current = draftId;
+    setCurrentDraftId(draftId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Also reset when draftId changes (navigating between different drafts)
+  const prevDraftIdRef = useRef(draftId);
+  if (draftId !== prevDraftIdRef.current) {
+    prevDraftIdRef.current = draftId;
+    setMountId((v) => v + 1);
+    setDraftLoaded(!draftId);
+    setLastSaved(null);
+    setIsSaving(false);
+    suppressAutosaveRef.current = !!draftId;
+    currentDraftIdRef.current = draftId;
+    setCurrentDraftId(draftId);
+  }
+
+  // Load existing draft — always fetch fresh
   const { data: existingDraft, isLoading: isDraftLoading } =
     api.draft.getById.useQuery(
       { id: draftId! },
-      { enabled: !!draftId && !isLoadedRef.current }
+      {
+        enabled: !!draftId && !draftLoaded,
+        staleTime: 0,
+        gcTime: 0,
+      }
     );
 
-  // Initialize form with draft data
+  // Initialize form with draft data when it arrives
   useEffect(() => {
-    if (existingDraft && !isLoadedRef.current) {
+    if (existingDraft && !draftLoaded) {
       setEditorData({
         title: existingDraft.title || "",
         content: existingDraft.content as SerializedEditorState | null,
         liveUrl: existingDraft.liveUrl || "",
-        projects: [], // Drafts don't store projects currently
+        projects: [],
         hideFromHome: false,
       });
       setCurrentDraftId(existingDraft.id);
-      isLoadedRef.current = true;
+      currentDraftIdRef.current = existingDraft.id;
+      setDraftLoaded(true);
+      suppressAutosaveRef.current = true;
     }
-  }, [existingDraft]);
+  }, [existingDraft, draftLoaded]);
 
   const utils = api.useUtils();
 
@@ -69,8 +102,6 @@ export default function ComposePage() {
       setCurrentDraftId(draft.id);
       setLastSaved(new Date());
       setIsSaving(false);
-      // Mark as loaded so we don't show the loading screen
-      isLoadedRef.current = true;
       // Invalidate draft list so it appears in the menu immediately
       utils.draft.list.invalidate();
       // Update URL with draft ID if it's a new draft (without causing navigation)
@@ -101,16 +132,16 @@ export default function ComposePage() {
     },
   });
 
-  // Debounced autosave effect - watches state changes and saves after delay
+  // Debounced autosave effect
   useEffect(() => {
-    // Skip autosave on initial render
-    if (isInitialRenderRef.current) {
-      isInitialRenderRef.current = false;
+    // Skip autosave when we just loaded draft data
+    if (suppressAutosaveRef.current) {
+      suppressAutosaveRef.current = false;
       return;
     }
 
-    // Skip if still loading draft data
-    if (draftId && !isLoadedRef.current) {
+    // Skip if draft data hasn't loaded yet
+    if (!draftLoaded) {
       return;
     }
 
@@ -124,7 +155,8 @@ export default function ComposePage() {
       return;
     }
 
-    autosaveTimeoutRef.current = setTimeout(() => {
+    const doSave = () => {
+      pendingSaveRef.current = null;
       setIsSaving(true);
       saveDraftMutation.mutate({
         id: currentDraftIdRef.current || undefined,
@@ -133,16 +165,28 @@ export default function ComposePage() {
         liveUrl: editorData.liveUrl || null,
         projectIds: editorData.projects.map((p) => p.id),
       });
-    }, AUTOSAVE_DELAY);
+    };
 
-    // Cleanup timeout on unmount or when dependencies change
+    pendingSaveRef.current = doSave;
+    autosaveTimeoutRef.current = setTimeout(doSave, AUTOSAVE_DELAY);
+
     return () => {
       if (autosaveTimeoutRef.current) {
         clearTimeout(autosaveTimeoutRef.current);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editorData, draftId]);
+  }, [editorData, draftLoaded]);
+
+  // Flush any pending save when the component unmounts/hides
+  useEffect(() => {
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+      pendingSaveRef.current?.();
+    };
+  }, []);
 
   const handleEditorChange = useCallback((data: PostEditorData) => {
     setEditorData(data);
@@ -177,14 +221,17 @@ export default function ComposePage() {
     }
   };
 
-  // Only show loading screen when loading an existing draft from URL (not after creating a new one)
-  if (isDraftLoading && draftId && !isLoadedRef.current) {
+  // Show loading screen while fetching draft data
+  if (!draftLoaded && isDraftLoading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  // Editor key includes mountId to force remount on every page show
+  const editorKey = `${draftId || "new"}-${mountId}`;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
@@ -257,7 +304,7 @@ export default function ComposePage() {
                 : undefined
             }
             onChange={handleEditorChange}
-            editorKey={editorKeyRef.current}
+            editorKey={editorKey}
           />
         </div>
       </div>
