@@ -100,16 +100,19 @@
   @apply pointer-events-none absolute left-4 top-4 select-none text-muted-foreground/50;
 }
 
-/* Selectable decorator nodes (images, attachments) */
+/* Selectable decorator nodes (images, attachments, upload placeholders) */
 .editor-image,
-.editor-attachment {
-  @apply relative cursor-pointer;
+.editor-attachment,
+.editor-upload-placeholder {
+  @apply relative block w-full cursor-pointer;
 }
 
 .editor-image:focus,
 .editor-attachment:focus,
+.editor-upload-placeholder:focus,
 .editor-image.selected,
-.editor-attachment.selected {
+.editor-attachment.selected,
+.editor-upload-placeholder.selected {
   @apply outline-2 outline-primary outline-offset-2 outline;
 }
 

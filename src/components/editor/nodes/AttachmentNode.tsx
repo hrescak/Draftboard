@@ -66,7 +66,15 @@ function AttachmentComponent({
   const [editor] = useLexicalComposerContext();
   const [isEditable, setIsEditable] = useState(() => editor.isEditable());
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const isMedia = attachmentType === "IMAGE" || attachmentType === "VIDEO";
+  const requiresSigningInit = needsUrlSigning(url);
+  const [isLoading, setIsLoading] = useState(() => {
+    // Skip loading state if we have a thumbnail to show or URL doesn't need signing
+    if (thumbnailUrl) return false;
+    if (!isMedia) return false;
+    if (!requiresSigningInit) return false;
+    return true;
+  });
   const [error, setError] = useState<string | null>(null);
   const [fallbackLightboxOpen, setFallbackLightboxOpen] = useState(false);
 
@@ -96,8 +104,7 @@ function AttachmentComponent({
   };
 
   const storageKey = extractStorageKey(url);
-  const requiresSigning = needsUrlSigning(url);
-  const isMedia = attachmentType === "IMAGE" || attachmentType === "VIDEO";
+  const requiresSigning = requiresSigningInit;
   const { data: signedUrlData, isLoading: isLoadingUrl, error: urlError } = api.upload.getDownloadUrl.useQuery(
     { key: storageKey! },
     {
@@ -174,10 +181,15 @@ function AttachmentComponent({
     </button>
   );
 
+  const loadingAspectStyle = width && height
+    ? { aspectRatio: `${width / height}` }
+    : undefined;
+  const loadingAspectClass = !width || !height ? "aspect-video" : "";
+
   if (attachmentType === "IMAGE") {
     if (isLoading) {
       return (
-        <div className="my-4 flex h-48 items-center justify-center rounded-lg bg-muted">
+        <div className={`my-4 flex w-full items-center justify-center rounded-lg bg-muted ${loadingAspectClass}`} style={loadingAspectStyle}>
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       );
@@ -185,20 +197,20 @@ function AttachmentComponent({
 
     return (
       <>
-        <div className="group relative my-4 inline-block">
+        <div className="group relative my-4 w-full">
           {isEditable && <DeleteButton />}
           <button
             type="button"
             onClick={handleMediaClick}
-            className="block cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
+            className="block w-full cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
           >
-            <div className="inline-block rounded-lg bg-muted/50">
+            <div className="w-full rounded-lg bg-muted/50">
               <img
                 src={displayUrl || url}
                 alt={filename}
                 width={width}
                 height={height}
-                className="max-w-full rounded-lg"
+                className="w-full rounded-lg"
                 loading="lazy"
                 onError={(e) => {
                   // If image fails to load, show error state
@@ -226,7 +238,7 @@ function AttachmentComponent({
   if (attachmentType === "VIDEO") {
     if (isLoading) {
       return (
-        <div className="my-4 flex h-48 items-center justify-center rounded-lg bg-muted">
+        <div className={`my-4 flex w-full items-center justify-center rounded-lg bg-muted ${loadingAspectClass}`} style={loadingAspectStyle}>
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       );
@@ -234,25 +246,25 @@ function AttachmentComponent({
 
     return (
       <>
-        <div className="group relative my-4 inline-block">
+        <div className="group relative my-4 w-full">
           {isEditable && <DeleteButton />}
           <button
             type="button"
             onClick={handleMediaClick}
-            className="block cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
+            className="block w-full cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
           >
-            <div className="inline-block rounded-lg bg-muted/50 relative">
+            <div className="w-full rounded-lg bg-muted/50 relative">
               {thumbnailUrl ? (
                 <img
                   src={thumbnailUrl}
                   alt={filename}
-                  className="max-w-full rounded-lg"
+                  className="w-full rounded-lg"
                   loading="lazy"
                 />
               ) : (
                 <video
                   src={displayUrl || url}
-                  className="max-w-full rounded-lg pointer-events-none"
+                  className="w-full rounded-lg pointer-events-none"
                   muted
                   playsInline
                   preload="metadata"

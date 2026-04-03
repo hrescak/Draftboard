@@ -88,6 +88,35 @@ export function FloatingAddButtonPlugin({ anchorElem }: FloatingAddButtonPluginP
     });
   }, [editor, updatePosition]);
 
+  // Also reposition when DOM layout changes (e.g. upload placeholder aspect ratio loads)
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      updatePosition();
+    });
+    observer.observe(anchorElem);
+    // Observe all decorator nodes (placeholders, attachments) for size changes
+    const decorators = anchorElem.querySelectorAll(
+      ".editor-upload-placeholder, .editor-attachment"
+    );
+    decorators.forEach((el) => observer.observe(el));
+
+    // Also watch for new decorator nodes being added
+    const mutationObserver = new MutationObserver(() => {
+      // Re-observe any new decorator nodes
+      const newDecorators = anchorElem.querySelectorAll(
+        ".editor-upload-placeholder, .editor-attachment"
+      );
+      newDecorators.forEach((el) => observer.observe(el));
+      updatePosition();
+    });
+    mutationObserver.observe(anchorElem, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [anchorElem, updatePosition]);
+
   // Close menu when clicking outside
   useEffect(() => {
     if (!isMenuOpen) return;

@@ -13,7 +13,7 @@ import {
 } from "lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useEffect, useRef, useState } from "react";
-import { FileIcon, ImageIcon, Film, Loader2, X } from "lucide-react";
+import { FileIcon, ImageIcon, Film, X } from "lucide-react";
 import { useUpload } from "~/lib/hooks/use-upload";
 import { getPendingUpload, removePendingUpload, cancelPendingUpload } from "~/lib/upload-store";
 import { $createAttachmentNode, type AttachmentType } from "./AttachmentNode";
@@ -56,9 +56,45 @@ function UploadPlaceholderComponent({
   const [editor] = useLexicalComposerContext();
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const mediaDimensionsRef = useRef<{ width: number; height: number } | null>(null);
   const uploadStartedRef = useRef(false);
 
   const { uploadFile } = useUpload();
+
+  // Read media dimensions to match aspect ratio
+  useEffect(() => {
+    const entry = getPendingUpload(uploadId);
+    if (!entry) return;
+    const { file } = entry;
+
+    if (file.type.startsWith("image/")) {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          mediaDimensionsRef.current = { width: img.naturalWidth, height: img.naturalHeight };
+          setAspectRatio(img.naturalWidth / img.naturalHeight);
+        }
+        URL.revokeObjectURL(objectUrl);
+      };
+      img.onerror = () => URL.revokeObjectURL(objectUrl);
+      img.src = objectUrl;
+    } else if (file.type.startsWith("video/")) {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      const objectUrl = URL.createObjectURL(file);
+      video.onloadedmetadata = () => {
+        if (video.videoWidth && video.videoHeight) {
+          mediaDimensionsRef.current = { width: video.videoWidth, height: video.videoHeight };
+          setAspectRatio(video.videoWidth / video.videoHeight);
+        }
+        URL.revokeObjectURL(objectUrl);
+      };
+      video.onerror = () => URL.revokeObjectURL(objectUrl);
+      video.src = objectUrl;
+    }
+  }, [uploadId]);
 
   useEffect(() => {
     // Only start upload once
@@ -73,12 +109,65 @@ function UploadPlaceholderComponent({
 
     const { file, abortController } = entry;
 
+    const captureVideoThumbnail = (file: File): Promise<string | undefined> => {
+      return new Promise((resolve) => {
+        try {
+          const video = document.createElement("video");
+          video.muted = true;
+          video.playsInline = true;
+          video.preload = "auto";
+          const objectUrl = URL.createObjectURL(file);
+          video.src = objectUrl;
+
+          video.addEventListener("loadeddata", () => {
+            // Seek to first frame
+            video.currentTime = 0.1;
+          });
+
+          video.addEventListener("seeked", () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(video, 0, 0);
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+                URL.revokeObjectURL(objectUrl);
+                resolve(dataUrl);
+              } else {
+                URL.revokeObjectURL(objectUrl);
+                resolve(undefined);
+              }
+            } catch {
+              URL.revokeObjectURL(objectUrl);
+              resolve(undefined);
+            }
+          });
+
+          video.addEventListener("error", () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(undefined);
+          });
+        } catch {
+          resolve(undefined);
+        }
+      });
+    };
+
     const doUpload = async () => {
       try {
+        // Start thumbnail capture in parallel with upload for videos
+        const thumbnailPromise = file.type.startsWith("video/")
+          ? captureVideoThumbnail(file)
+          : Promise.resolve(undefined);
+
         const { url } = await uploadFile(file, {
           onProgress: (p) => setProgress(p),
           signal: abortController.signal,
         });
+
+        const thumbnailUrl = await thumbnailPromise;
 
         // Determine attachment type
         let attachmentType: AttachmentType = "FILE";
@@ -98,6 +187,9 @@ function UploadPlaceholderComponent({
               filename: file.name,
               mimeType: file.type,
               size: file.size,
+              thumbnailUrl,
+              width: mediaDimensionsRef.current?.width,
+              height: mediaDimensionsRef.current?.height,
             });
             node.replace(attachmentNode);
           }
@@ -151,14 +243,23 @@ function UploadPlaceholderComponent({
 
   const isMedia = mimeType.startsWith("image/") || mimeType.startsWith("video/");
 
+  const progressBar = (
+    <div className="h-1.5 w-24 overflow-hidden rounded-full bg-foreground/10">
+      <div
+        className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+        style={{ width: `${Math.max(progress, 2)}%` }}
+      />
+    </div>
+  );
+
   if (error) {
     return (
       <div className="my-4 rounded-lg border border-destructive/50 bg-destructive/5 p-4">
         <div className="flex items-center gap-3">
           {getFileTypeIcon(mimeType)}
           <div className="flex-1 min-w-0">
-            <p className="truncate text-sm font-medium">{filename}</p>
-            <p className="text-xs text-destructive">{error}</p>
+            <p className="truncate font-medium">{filename}</p>
+            <p className="text-sm text-destructive">{error}</p>
           </div>
           <button
             type="button"
@@ -172,39 +273,59 @@ function UploadPlaceholderComponent({
     );
   }
 
-  return (
-    <div
-      className={`my-4 rounded-lg border border-border bg-muted/30 overflow-hidden ${
-        isMedia ? "aspect-video max-h-64" : ""
-      }`}
-    >
-      <div className={`flex flex-col justify-center p-4 ${isMedia ? "h-full" : ""}`}>
-        <div className="flex items-center gap-3">
-          <div className="shrink-0">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  // File upload placeholder — matches finished file attachment layout
+  if (!isMedia) {
+    return (
+      <div className="group relative my-4">
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white"
+          aria-label="Cancel upload"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 pr-7">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+            <FileIcon className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">{filename}</p>
-            <p className="text-xs text-muted-foreground">
+          <div className="flex-1 overflow-hidden">
+            <p className="truncate font-medium">{filename}</p>
+            <p className="text-sm text-muted-foreground">
               {formatFileSize(fileSize)} · Uploading{progress > 0 ? ` · ${progress}%` : "..."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            aria-label="Cancel upload"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {progressBar}
         </div>
-        {/* Progress bar */}
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
-            style={{ width: `${Math.max(progress, 2)}%` }}
-          />
-        </div>
+      </div>
+    );
+  }
+
+  // Media upload placeholder — centered vertical layout with aspect ratio
+  return (
+    <div
+      className="group relative my-4 w-full rounded-lg bg-muted overflow-hidden"
+      style={aspectRatio ? { aspectRatio: `${aspectRatio}` } : undefined}
+    >
+      <button
+        type="button"
+        onClick={handleCancel}
+        className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white"
+        aria-label="Cancel upload"
+      >
+        <X className="h-4 w-4" />
+      </button>
+      <div className={`flex w-full flex-col items-center justify-center ${aspectRatio ? "absolute inset-0" : "p-8"}`}>
+        {mimeType.startsWith("video/") ? (
+          <Film className="h-6 w-6 text-muted-foreground" />
+        ) : (
+          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+        )}
+        <p className="mt-3 truncate text-sm font-medium text-foreground">{filename}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {formatFileSize(fileSize)} · Uploading{progress > 0 ? ` · ${progress}%` : "..."}
+        </p>
+        <div className="mt-3">{progressBar}</div>
       </div>
     </div>
   );
