@@ -15,6 +15,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { Suspense, useEffect, useState, useId } from "react";
 import { FileIcon, Download, Play, ExternalLink, Loader2, X } from "lucide-react";
 import { api } from "~/lib/trpc/client";
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
 import { Lightbox } from "~/components/ui/lightbox";
 import { useMediaLightbox } from "~/components/ui/media-lightbox-context";
 
@@ -41,18 +42,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// Extract R2 key from URL if it's an R2 URL
-function extractR2Key(url: string): string | null {
-  // Match patterns like:
-  // https://bucket.accountid.r2.cloudflarestorage.com/uploads/userid/timestamp-filename
-  // https://custom-domain.com/uploads/userid/timestamp-filename
-  const match = url.match(/uploads\/[^\/]+\/[^\/]+$/);
-  if (match) {
-    return match[0];
-  }
-  return null;
-}
-
 function AttachmentComponent({
   attachmentType,
   url,
@@ -77,7 +66,15 @@ function AttachmentComponent({
   const [editor] = useLexicalComposerContext();
   const [isEditable, setIsEditable] = useState(() => editor.isEditable());
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const isMedia = attachmentType === "IMAGE" || attachmentType === "VIDEO";
+  const requiresSigningInit = needsUrlSigning(url);
+  const [isLoading, setIsLoading] = useState(() => {
+    // Skip loading state if we have a thumbnail to show or URL doesn't need signing
+    if (thumbnailUrl) return false;
+    if (!isMedia) return false;
+    if (!requiresSigningInit) return false;
+    return true;
+  });
   const [error, setError] = useState<string | null>(null);
   const [fallbackLightboxOpen, setFallbackLightboxOpen] = useState(false);
 
@@ -106,26 +103,25 @@ function AttachmentComponent({
     });
   };
 
-  const r2Key = extractR2Key(url);
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = requiresSigningInit;
   const { data: signedUrlData, isLoading: isLoadingUrl, error: urlError } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key && (attachmentType === "IMAGE" || attachmentType === "VIDEO"),
-      staleTime: 30 * 60 * 1000, // Cache for 30 minutes (URL expires in 1 hour)
+      enabled: requiresSigning && isMedia && !!storageKey,
+      staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
   useEffect(() => {
-    if (attachmentType !== "IMAGE" && attachmentType !== "VIDEO") {
-      // For non-media types, use original URL
+    if (!isMedia) {
       setDisplayUrl(url);
       setIsLoading(false);
       return;
     }
 
-    if (!r2Key) {
-      // If we can't extract a key, try using the URL directly
+    if (!requiresSigning || !storageKey) {
       setDisplayUrl(url);
       setIsLoading(false);
       return;
@@ -135,14 +131,13 @@ function AttachmentComponent({
       setDisplayUrl(signedUrlData.url);
       setIsLoading(false);
     } else if (urlError) {
-      // If signed URL fails, try original URL
       setDisplayUrl(url);
       setIsLoading(false);
       setError("Could not load signed URL, trying direct URL");
     } else if (isLoadingUrl) {
       setIsLoading(true);
     }
-  }, [attachmentType, url, r2Key, signedUrlData, urlError, isLoadingUrl]);
+  }, [isMedia, url, requiresSigning, storageKey, signedUrlData, urlError, isLoadingUrl]);
 
   // Register this media item with the shared lightbox context
   useEffect(() => {
@@ -186,10 +181,15 @@ function AttachmentComponent({
     </button>
   );
 
+  const loadingAspectStyle = width && height
+    ? { aspectRatio: `${width / height}` }
+    : undefined;
+  const loadingAspectClass = !width || !height ? "aspect-video" : "";
+
   if (attachmentType === "IMAGE") {
     if (isLoading) {
       return (
-        <div className="my-4 flex h-48 items-center justify-center rounded-lg bg-muted">
+        <div className={`my-4 flex w-full items-center justify-center rounded-lg bg-muted ${loadingAspectClass}`} style={loadingAspectStyle}>
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       );
@@ -197,20 +197,20 @@ function AttachmentComponent({
 
     return (
       <>
-        <div className="group relative my-4 inline-block">
+        <div className="group relative my-4 w-full">
           {isEditable && <DeleteButton />}
           <button
             type="button"
             onClick={handleMediaClick}
-            className="block cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
+            className="block w-full cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
           >
-            <div className="inline-block rounded-lg bg-muted/50">
+            <div className="w-full rounded-lg bg-muted/50">
               <img
                 src={displayUrl || url}
                 alt={filename}
                 width={width}
                 height={height}
-                className="max-w-full rounded-lg"
+                className="w-full rounded-lg"
                 loading="lazy"
                 onError={(e) => {
                   // If image fails to load, show error state
@@ -238,7 +238,7 @@ function AttachmentComponent({
   if (attachmentType === "VIDEO") {
     if (isLoading) {
       return (
-        <div className="my-4 flex h-48 items-center justify-center rounded-lg bg-muted">
+        <div className={`my-4 flex w-full items-center justify-center rounded-lg bg-muted ${loadingAspectClass}`} style={loadingAspectStyle}>
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       );
@@ -246,26 +246,27 @@ function AttachmentComponent({
 
     return (
       <>
-        <div className="group relative my-4 inline-block">
+        <div className="group relative my-4 w-full">
           {isEditable && <DeleteButton />}
           <button
             type="button"
             onClick={handleMediaClick}
-            className="block cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
+            className="block w-full cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
           >
-            <div className="inline-block rounded-lg bg-muted/50 relative">
+            <div className="w-full rounded-lg bg-muted/50 relative">
               {thumbnailUrl ? (
                 <img
                   src={thumbnailUrl}
                   alt={filename}
-                  className="max-w-full rounded-lg"
+                  className="w-full rounded-lg"
                   loading="lazy"
                 />
               ) : (
                 <video
                   src={displayUrl || url}
-                  className="max-w-full rounded-lg pointer-events-none"
+                  className="w-full rounded-lg pointer-events-none"
                   muted
+                  playsInline
                   preload="metadata"
                 >
                   <track kind="captions" />
@@ -359,12 +360,12 @@ function AttachmentComponent({
     );
   }
 
-  // Generic file attachment - use signed URL for download
-  const downloadKey = extractR2Key(url);
+  const downloadKey = extractStorageKey(url);
+  const downloadNeedsSigning = needsUrlSigning(url);
   const { data: downloadUrlData } = api.upload.getDownloadUrl.useQuery(
     { key: downloadKey! },
     {
-      enabled: !!downloadKey,
+      enabled: downloadNeedsSigning && !!downloadKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }

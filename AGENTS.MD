@@ -161,6 +161,51 @@ const items = data?.pages.flatMap((page) => page.items) ?? [];
 
 Use `formatRelativeTime()` from `~/lib/utils` for consistent relative dates.
 
-### URL Signing for R2
+### File Storage
 
-Private R2 URLs need signing. Use `api.upload.getDownloadUrl.useQuery()` for attachments and cover images.
+Draftboard supports two storage backends, selected by environment variables:
+
+- **Vercel Blob** (`BLOB_READ_WRITE_TOKEN`) — URLs are public, no signing needed.
+- **Cloudflare R2 / AWS S3** (`R2_*` vars) — private URLs need signing.
+
+If both are configured, Vercel Blob takes priority.
+
+#### Key files
+
+| File | Purpose |
+|---|---|
+| `src/lib/storage.ts` | Server-side storage abstraction (provider detection, signed URLs) |
+| `src/lib/storage-url.ts` | Client-side URL utilities (`extractStorageKey`, `needsUrlSigning`) |
+| `src/lib/r2.ts` | Cloudflare R2 / S3 implementation (presigned URLs) |
+| `src/lib/hooks/use-upload.ts` | Client-side upload hook (auto-selects provider) |
+| `src/app/api/upload/blob/route.ts` | Vercel Blob client upload handler |
+
+#### Upload pattern
+
+All client upload components use the `useUpload()` hook from `~/lib/hooks/use-upload`:
+
+```tsx
+const { uploadFile } = useUpload();
+const { url } = await uploadFile(file);
+```
+
+The hook automatically uses the correct provider (R2 presigned URLs or Vercel Blob client upload).
+
+#### URL display pattern
+
+For displaying stored URLs (images, avatars, etc.), use the utilities from `~/lib/storage-url`:
+
+```tsx
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
+
+const storageKey = extractStorageKey(url);
+const requiresSigning = needsUrlSigning(url);
+
+const { data } = api.upload.getDownloadUrl.useQuery(
+  { key: storageKey! },
+  { enabled: requiresSigning && !!storageKey }
+);
+const displayUrl = requiresSigning && data?.url ? data.url : url;
+```
+
+Vercel Blob URLs (containing `blob.vercel-storage.com`) are automatically recognized as public and skip signing.

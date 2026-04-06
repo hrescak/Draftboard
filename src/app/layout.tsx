@@ -20,6 +20,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf9f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f0e0d" },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -28,10 +32,6 @@ export const metadata: Metadata = {
   ),
   title: "Draftboard",
   description: "A place to share ideas and work in progress.",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#faf9f7" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f0e0d" },
-  ],
   manifest: "/manifest.json",
   openGraph: {
     title: "Draftboard",

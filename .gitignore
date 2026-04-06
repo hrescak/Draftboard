@@ -6,3 +6,4 @@ node_modules
 .next
 debug-storybook.log
 storybook-static
+tsconfig.tsbuildinfo

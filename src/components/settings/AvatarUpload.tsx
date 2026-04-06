@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { UserAvatar } from "~/components/ui/avatar";
-import { api } from "~/lib/trpc/client";
+import { useUpload } from "~/lib/hooks/use-upload";
 import { Loader2, X, Camera } from "lucide-react";
 
 interface AvatarUploadProps {
@@ -17,20 +17,18 @@ export function AvatarUpload({ value, onChange, fallbackName = "" }: AvatarUploa
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const getUploadUrl = api.upload.getUploadUrl.useMutation();
+  const { uploadFile } = useUpload();
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     const allowedTypes = ["image/png", "image/gif", "image/webp", "image/jpeg"];
     if (!allowedTypes.includes(file.type)) {
       setError("Please select a PNG, GIF, WebP, or JPEG file");
       return;
     }
 
-    // Validate file size (2MB max for avatar)
     if (file.size > 2 * 1024 * 1024) {
       setError("Avatar image must be less than 2MB");
       return;
@@ -40,34 +38,13 @@ export function AvatarUpload({ value, onChange, fallbackName = "" }: AvatarUploa
     setIsUploading(true);
 
     try {
-      // Get upload URL
-      const { uploadUrl, publicUrl } = await getUploadUrl.mutateAsync({
-        filename: file.name,
-        contentType: file.type,
-        size: file.size,
-      });
-
-      // Upload to R2
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Upload failed");
-      }
-
-      // Use the public URL for storage
-      onChange(publicUrl);
+      const { url } = await uploadFile(file);
+      onChange(url);
     } catch (err) {
       console.error("Upload error:", err);
       setError("Failed to upload image. Please try again.");
     } finally {
       setIsUploading(false);
-      // Reset the input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }

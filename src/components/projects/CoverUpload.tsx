@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import { Button } from "~/components/ui/button";
 import { api } from "~/lib/trpc/client";
+import { useUpload } from "~/lib/hooks/use-upload";
+import { extractStorageKey, needsUrlSigning } from "~/lib/storage-url";
 import { Loader2, Upload, X, ImageIcon } from "lucide-react";
 
 interface CoverUploadProps {
@@ -10,34 +12,22 @@ interface CoverUploadProps {
   onChange: (url: string | null) => void;
 }
 
-// Extract R2 key from URL
-function extractR2Key(url: string): string | null {
-  const urlWithoutParams = url.split('?')[0];
-  const match = urlWithoutParams?.match(/uploads\/[^\/]+\/[^\/]+$/);
-  return match ? match[0] : null;
-}
-
-// Check if URL is already a signed URL
-function isSignedUrl(url: string): boolean {
-  return url.includes('X-Amz-') || url.includes('x-amz-');
-}
-
 function SignedCoverImage({ url, alt }: { url: string; alt: string }) {
-  const alreadySigned = isSignedUrl(url);
-  const r2Key = !alreadySigned ? extractR2Key(url) : null;
+  const storageKey = extractStorageKey(url);
+  const requiresSigning = needsUrlSigning(url);
 
   const { data: signedUrlData, isLoading } = api.upload.getDownloadUrl.useQuery(
-    { key: r2Key! },
+    { key: storageKey! },
     {
-      enabled: !!r2Key && !alreadySigned,
+      enabled: requiresSigning && !!storageKey,
       staleTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );
 
-  const displayUrl = alreadySigned ? url : (signedUrlData?.url || url);
+  const displayUrl = requiresSigning && signedUrlData?.url ? signedUrlData.url : url;
 
-  if (!alreadySigned && isLoading && r2Key) {
+  if (requiresSigning && isLoading && storageKey) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-muted">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -59,19 +49,17 @@ export function CoverUpload({ value, onChange }: CoverUploadProps) {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const getUploadUrl = api.upload.getUploadUrl.useMutation();
+  const { uploadFile } = useUpload();
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       setError("Please select an image file");
       return;
     }
 
-    // Validate file size (10MB max for cover images)
     if (file.size > 10 * 1024 * 1024) {
       setError("Image must be less than 10MB");
       return;
@@ -81,34 +69,13 @@ export function CoverUpload({ value, onChange }: CoverUploadProps) {
     setIsUploading(true);
 
     try {
-      // Get upload URL
-      const { uploadUrl, publicUrl } = await getUploadUrl.mutateAsync({
-        filename: file.name,
-        contentType: file.type,
-        size: file.size,
-      });
-
-      // Upload to R2
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Upload failed");
-      }
-
-      // Use the public URL for storage
-      onChange(publicUrl);
+      const { url } = await uploadFile(file);
+      onChange(url);
     } catch (err) {
       console.error("Upload error:", err);
       setError("Failed to upload image. Please try again.");
     } finally {
       setIsUploading(false);
-      // Reset the input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }

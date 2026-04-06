@@ -5,16 +5,7 @@ import {
   activeUserProcedure,
 } from "~/server/api/trpc";
 import { saveDraftSchema, deleteDraftSchema } from "~/lib/validators";
-import { getPresignedDownloadUrl, isR2Configured } from "~/lib/r2";
-
-// Extract R2 key from URL if it's an R2 URL
-function extractR2Key(url: string): string | null {
-  const match = url.match(/uploads\/[^\/]+\/[^\/]+$/);
-  if (match) {
-    return match[0];
-  }
-  return null;
-}
+import { getPresignedDownloadUrl, isStorageConfigured, extractStorageKey } from "~/lib/storage";
 
 export const draftRouter = createTRPCRouter({
   // Upsert draft - creates new if no id, updates if id exists
@@ -108,11 +99,11 @@ export const draftRouter = createTRPCRouter({
 
         // Sign the image URL if R2 is configured
         let signedImageUrl: string | null = null;
-        if (firstImageUrl && isR2Configured()) {
-          const r2Key = extractR2Key(firstImageUrl);
-          if (r2Key) {
+        if (firstImageUrl && isStorageConfigured()) {
+          const storageKey = extractStorageKey(firstImageUrl);
+          if (storageKey) {
             try {
-              signedImageUrl = await getPresignedDownloadUrl(r2Key);
+              signedImageUrl = await getPresignedDownloadUrl(storageKey);
             } catch {
               // If signing fails, fall back to null
               signedImageUrl = null;

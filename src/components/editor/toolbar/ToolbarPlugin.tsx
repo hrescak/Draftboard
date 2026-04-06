@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { $createAttachmentNode, type AttachmentType } from "../nodes/AttachmentNode";
-import { api } from "~/lib/trpc/client";
+import { useUpload } from "~/lib/hooks/use-upload";
 
 export function ToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
@@ -35,7 +35,7 @@ export function ToolbarPlugin() {
   const [isUploading, setIsUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadMutation = api.upload.getUploadUrl.useMutation();
+  const { uploadFile } = useUpload();
 
   const updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -70,30 +70,8 @@ export function ToolbarPlugin() {
     async (file: File) => {
       setIsUploading(true);
       try {
-        // Get presigned URL
-        const result = await uploadMutation.mutateAsync({
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-        });
+        const { url } = await uploadFile(file);
 
-        // Upload to R2
-        const uploadResponse = await fetch(result.uploadUrl, {
-          method: "PUT",
-          body: file,
-          headers: {
-            "Content-Type": file.type,
-          },
-        });
-
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error("R2 upload failed:", uploadResponse.status, errorText);
-          alert(`Upload failed: ${uploadResponse.status} - Check CORS configuration on R2 bucket`);
-          return;
-        }
-
-        // Determine attachment type
         let attachmentType: AttachmentType = "FILE";
         if (file.type.startsWith("image/")) {
           attachmentType = "IMAGE";
@@ -101,13 +79,12 @@ export function ToolbarPlugin() {
           attachmentType = "VIDEO";
         }
 
-        // Insert attachment node
         editor.update(() => {
           const selection = $getSelection();
           if ($isRangeSelection(selection)) {
             const attachmentNode = $createAttachmentNode({
               attachmentType,
-              url: result.publicUrl,
+              url,
               filename: file.name,
               mimeType: file.type,
               size: file.size,
@@ -123,7 +100,7 @@ export function ToolbarPlugin() {
         setIsUploading(false);
       }
     },
-    [editor, uploadMutation]
+    [editor, uploadFile]
   );
 
   return (
