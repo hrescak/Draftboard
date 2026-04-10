@@ -130,6 +130,10 @@ export default function ComposePage() {
       utils.draft.list.invalidate();
       router.push(`/post/${post.id}`);
     },
+    onError: (err) => {
+      console.error("[Draftboard] Failed to publish post:", err);
+      alert(`Failed to publish: ${err.message}`);
+    },
   });
 
   // Debounced autosave effect

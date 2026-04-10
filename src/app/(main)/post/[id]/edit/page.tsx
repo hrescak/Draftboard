@@ -51,6 +51,10 @@ export default function EditPostPage({ params }: EditPostPageProps) {
       utils.post.byProject.invalidate();
       router.push(`/post/${updatedPost.id}`);
     },
+    onError: (err) => {
+      console.error("[Draftboard] Failed to save post:", err);
+      alert(`Failed to save changes: ${err.message}`);
+    },
   });
 
   const handleEditorChange = useCallback((data: PostEditorData) => {
